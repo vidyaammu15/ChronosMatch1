@@ -34,7 +34,7 @@ class MMapRingBuffer:
 
         +-----------------------------+
         | Header                      |
-        | head | tail                |
+        | head | tail                 |
         +-----------------------------+
         | Slot 0                      |
         +-----------------------------+
@@ -106,7 +106,6 @@ class MMapRingBuffer:
         if create:
             self._write_head(0)
             self._write_tail(0)
-
             self._mmap.flush()
 
     # -------------------------------------------------
@@ -200,10 +199,17 @@ class MMapRingBuffer:
         )
 
     # -------------------------------------------------
-    # Producer
+    # Producer - single order
     # -------------------------------------------------
 
     def write(self, order: Order) -> None:
+        """
+        Write one order into the ring buffer.
+
+        The order data is written first and the head is
+        advanced only after the slot is completely written.
+        """
+
         head = self._read_head()
         tail = self._read_tail()
 
@@ -214,27 +220,79 @@ class MMapRingBuffer:
                 "Ring buffer is full"
             )
 
-        # Serialize order into fixed-size binary data.
         data = serialize_order(order)
 
-        # Determine the slot.
         index = head % self.capacity
-
         offset = self._slot_offset(index)
 
-        # Write order data first.
         self._mmap.seek(offset)
-
         self._mmap.write(data)
 
-        # Publish the slot by advancing head.
+        # Publish the completed slot.
         self._write_head(head + 1)
+
+    # -------------------------------------------------
+    # Producer - batch
+    # -------------------------------------------------
+
+    def write_batch(self, orders) -> int:
+        """
+        Write multiple orders into the ring buffer.
+
+        The head is published once after all orders in the
+        batch have been written.
+
+        Returns the number of orders written.
+        """
+
+        if not orders:
+            return 0
+
+        head = self._read_head()
+        tail = self._read_tail()
+
+        available = self.capacity - (head - tail)
+
+        if available <= 0:
+            raise BufferError(
+                "Ring buffer is full"
+            )
+
+        batch_count = min(
+            len(orders),
+            available,
+        )
+
+        for i in range(batch_count):
+            order = orders[i]
+
+            data = serialize_order(order)
+
+            index = (
+                head + i
+            ) % self.capacity
+
+            offset = self._slot_offset(index)
+
+            self._mmap.seek(offset)
+            self._mmap.write(data)
+
+        # Publish all completed slots at once.
+        self._write_head(
+            head + batch_count
+        )
+
+        return batch_count
 
     # -------------------------------------------------
     # Consumer
     # -------------------------------------------------
 
     def read(self) -> Order:
+        """
+        Read one order from the ring buffer.
+        """
+
         head = self._read_head()
         tail = self._read_tail()
 
@@ -243,12 +301,9 @@ class MMapRingBuffer:
                 "Ring buffer is empty"
             )
 
-        # Determine the slot.
         index = tail % self.capacity
-
         offset = self._slot_offset(index)
 
-        # Read serialized order.
         self._mmap.seek(offset)
 
         data = self._mmap.read(
@@ -257,8 +312,10 @@ class MMapRingBuffer:
 
         order = deserialize_order(data)
 
-        # Release the slot by advancing tail.
-        self._write_tail(tail + 1)
+        # Release the slot.
+        self._write_tail(
+            tail + 1
+        )
 
         return order
 
@@ -272,5 +329,9 @@ class MMapRingBuffer:
         self._file.close()
 
     def unlink(self) -> None:
-        if os.path.exists(self.file_path):
-            os.remove(self.file_path)
+        if os.path.exists(
+            self.file_path
+        ):
+            os.remove(
+                self.file_path
+            )

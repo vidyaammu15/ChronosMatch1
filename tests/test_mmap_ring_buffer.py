@@ -88,3 +88,33 @@ def test_mmap_ring_buffer_wraparound(tmp_path):
     assert buffer.is_empty()
 
     buffer.close()
+def test_mmap_ring_buffer_write_batch(tmp_path):
+    file_path = str(tmp_path / "ring_buffer.bin")
+
+    buffer = MMapRingBuffer(
+        file_path=file_path,
+        capacity=4,
+    )
+
+    orders = [
+        create_order(1),
+        create_order(2),
+        create_order(3),
+    ]
+
+    written = buffer.write_batch(orders)
+
+    assert written == 3
+    assert buffer.size() == 3
+
+    first = buffer.read()
+    second = buffer.read()
+    third = buffer.read()
+
+    assert first.order_id == 1
+    assert second.order_id == 2
+    assert third.order_id == 3
+
+    assert buffer.is_empty()
+
+    buffer.close()

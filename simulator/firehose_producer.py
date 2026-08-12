@@ -1,3 +1,4 @@
+import asyncio
 import time
 
 from ipc.mmap_ring_buffer import MMapRingBuffer
@@ -7,9 +8,10 @@ from simulator.market_firehose import MarketFirehose
 FILE_PATH = "chronosmatch_firehose.bin"
 CAPACITY = 4096
 ORDER_COUNT = 100000
+BATCH_SIZE = 256
 
 
-def produce_orders():
+async def produce_orders():
     firehose = MarketFirehose()
 
     buffer = MMapRingBuffer(
@@ -23,16 +25,31 @@ def produce_orders():
     try:
         while produced < ORDER_COUNT:
 
-            # Wait briefly if the ring buffer is full.
-            if buffer.is_full():
-                time.sleep(0.000001)
+            # Check available space in the ring buffer.
+            head = buffer.head
+            tail = buffer.tail
+
+            available = CAPACITY - (head - tail)
+
+            if available <= 0:
+                # Yield only when the consumer needs to free space.
+                await asyncio.sleep(0)
                 continue
 
-            order = firehose.generate_order()
+            batch_count = min(
+                BATCH_SIZE,
+                available,
+                ORDER_COUNT - produced,
+            )
 
-            buffer.write(order)
+            orders = [
+                firehose.generate_order()
+                for _ in range(batch_count)
+            ]
 
-            produced += 1
+            written = buffer.write_batch(orders)
+
+            produced += written
 
         return produced
 
@@ -43,7 +60,9 @@ def produce_orders():
 def main():
     start = time.perf_counter()
 
-    produced = produce_orders()
+    produced = asyncio.run(
+        produce_orders()
+    )
 
     elapsed = time.perf_counter() - start
 
