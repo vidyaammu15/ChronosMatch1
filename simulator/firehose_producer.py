@@ -23,8 +23,9 @@ def produce_orders():
     try:
         while produced < ORDER_COUNT:
 
-            # Wait until the consumer frees a slot.
+            # Wait briefly if the ring buffer is full.
             if buffer.is_full():
+                time.sleep(0.000001)
                 continue
 
             order = firehose.generate_order()
