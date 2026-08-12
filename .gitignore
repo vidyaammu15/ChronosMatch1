@@ -2,3 +2,5 @@ venv/
 __pycache__/
 *.pyc
 .pytest_cache/
+chronosmatch_ring.bin
+chronosmatch_ring.bin
