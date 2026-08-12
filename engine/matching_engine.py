@@ -23,12 +23,21 @@ class MatchingEngine:
 
         if order.side == OrderSide.BUY:
             trades = self._match_buy(order)
+
         elif order.side == OrderSide.SELL:
             trades = self._match_sell(order)
+
         else:
-            raise ValueError(f"Unsupported order side: {order.side}")
+            raise ValueError(
+                f"Unsupported order side: {order.side}"
+            )
 
         return trades
+
+    def cancel_order(self, order: Order):
+        """Cancel a resting order."""
+
+        return self.book.cancel_order(order)
 
     def _match_buy(self, incoming: Order):
         trades = []
@@ -44,7 +53,6 @@ class MatchingEngine:
                 break
 
             queue = self.book.asks[best_ask]
-
             resting = queue[0]
 
             trade_quantity = min(
@@ -89,7 +97,6 @@ class MatchingEngine:
                 break
 
             queue = self.book.bids[best_bid]
-
             resting = queue[0]
 
             trade_quantity = min(

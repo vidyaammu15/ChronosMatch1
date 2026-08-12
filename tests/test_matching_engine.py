@@ -275,3 +275,48 @@ def test_price_priority_for_sell_orders():
     assert trades[0].quantity == 10
 
     assert engine.book.best_ask() == 65100
+
+
+def test_cancel_buy_order():
+    engine = MatchingEngine()
+
+    buy = create_order(
+        1,
+        OrderSide.BUY,
+        65000,
+        10,
+    )
+
+    engine.process_order(buy)
+
+    assert engine.cancel_order(buy) is True
+    assert engine.book.best_bid() is None
+
+
+def test_cancel_sell_order():
+    engine = MatchingEngine()
+
+    sell = create_order(
+        1,
+        OrderSide.SELL,
+        65000,
+        10,
+    )
+
+    engine.process_order(sell)
+
+    assert engine.cancel_order(sell) is True
+    assert engine.book.best_ask() is None
+
+
+def test_cancel_nonexistent_order():
+    engine = MatchingEngine()
+
+    buy = create_order(
+        1,
+        OrderSide.BUY,
+        65000,
+        10,
+    )
+
+    assert engine.cancel_order(buy) is False
