@@ -6,34 +6,38 @@ from core.serializer import serialize_order, deserialize_order, order_size
 from core.types import Order
 
 
-# Header:
-# Q = head
-# Q = tail
-# Q = count
-HEADER_FORMAT = "=QQQ"
-HEADER_STRUCT = struct.Struct(HEADER_FORMAT)
+# Header layout:
+#
+# 0 - 7   : head
+# 8 - 15  : tail
+#
+# Producer owns head.
+# Consumer owns tail.
 
+HEAD_OFFSET = 0
+TAIL_OFFSET = 8
+
+HEADER_FORMAT = "=QQ"
+HEADER_STRUCT = struct.Struct(HEADER_FORMAT)
 HEADER_SIZE = HEADER_STRUCT.size
 
 
 class MMapRingBuffer:
     """
-    Ring buffer stored inside an mmap-backed file.
+    Single-producer / single-consumer mmap ring buffer.
 
-    Layout:
+    Producer:
+        - reads head and tail
+        - writes order data
+        - updates ONLY head
 
-    ┌──────────────────────────────────────────┐
-    │ Header                                   │
-    │ head | tail | count                      │
-    ├──────────────────────────────────────────┤
-    │ Slot 0                                   │
-    ├──────────────────────────────────────────┤
-    │ Slot 1                                   │
-    ├──────────────────────────────────────────┤
-    │ Slot 2                                   │
-    ├──────────────────────────────────────────┤
-    │ ...                                      │
-    └──────────────────────────────────────────┘
+    Consumer:
+        - reads head and tail
+        - reads order data
+        - updates ONLY tail
+
+    This avoids both processes overwriting each other's
+    header updates.
     """
 
     def __init__(
@@ -50,8 +54,8 @@ class MMapRingBuffer:
         self.slot_size = order_size()
 
         self.total_size = (
-            HEADER_SIZE +
-            self.capacity * self.slot_size
+            HEADER_SIZE
+            + self.capacity * self.slot_size
         )
 
         if create:
@@ -69,92 +73,116 @@ class MMapRingBuffer:
         )
 
         if create:
-            self._write_header(
-                head=0,
-                tail=0,
-                count=0,
-            )
+            self._write_head(0)
+            self._write_tail(0)
+            self._mmap.flush()
 
-    def _read_header(self):
-        self._mmap.seek(0)
+    # -----------------------------
+    # Header operations
+    # -----------------------------
 
-        data = self._mmap.read(HEADER_SIZE)
+    def _read_head(self) -> int:
+        self._mmap.seek(HEAD_OFFSET)
 
-        return HEADER_STRUCT.unpack(data)
+        data = self._mmap.read(8)
 
-    def _write_header(
-        self,
-        head: int,
-        tail: int,
-        count: int,
-    ):
-        self._mmap.seek(0)
+        return struct.unpack("=Q", data)[0]
 
-        data = HEADER_STRUCT.pack(
-            head,
-            tail,
-            count,
+    def _read_tail(self) -> int:
+        self._mmap.seek(TAIL_OFFSET)
+
+        data = self._mmap.read(8)
+
+        return struct.unpack("=Q", data)[0]
+
+    def _write_head(self, head: int) -> None:
+        self._mmap.seek(HEAD_OFFSET)
+
+        self._mmap.write(
+            struct.pack("=Q", head)
         )
 
-        self._mmap.write(data)
-        self._mmap.flush()
+    def _write_tail(self, tail: int) -> None:
+        self._mmap.seek(TAIL_OFFSET)
+
+        self._mmap.write(
+            struct.pack("=Q", tail)
+        )
 
     @property
-    def head(self):
-        return self._read_header()[0]
+    def head(self) -> int:
+        return self._read_head()
 
     @property
-    def tail(self):
-        return self._read_header()[1]
+    def tail(self) -> int:
+        return self._read_tail()
 
     @property
-    def count(self):
-        return self._read_header()[2]
+    def count(self) -> int:
+        return self.head - self.tail
+
+    # -----------------------------
+    # State
+    # -----------------------------
 
     def is_empty(self) -> bool:
-        return self.count == 0
+        return self.head == self.tail
 
     def is_full(self) -> bool:
-        return self.count == self.capacity
+        return (self.head - self.tail) >= self.capacity
 
     def size(self) -> int:
-        return self.count
+        return self.head - self.tail
+
+    # -----------------------------
+    # Slot
+    # -----------------------------
 
     def _slot_offset(self, index: int) -> int:
         if not 0 <= index < self.capacity:
             raise IndexError("Invalid ring-buffer index")
 
-        return HEADER_SIZE + index * self.slot_size
+        return (
+            HEADER_SIZE
+            + index * self.slot_size
+        )
+
+    # -----------------------------
+    # Producer
+    # -----------------------------
 
     def write(self, order: Order) -> None:
-        if self.is_full():
-            raise BufferError("Ring buffer is full")
+        head = self._read_head()
+        tail = self._read_tail()
 
-        head, tail, count = self._read_header()
+        if (head - tail) >= self.capacity:
+            raise BufferError("Ring buffer is full")
 
         data = serialize_order(order)
 
-        offset = self._slot_offset(head)
+        index = head % self.capacity
+        offset = self._slot_offset(index)
 
+        # Write the order first.
         self._mmap.seek(offset)
         self._mmap.write(data)
 
-        head = (head + 1) % self.capacity
-        count += 1
+        # Publish the slot by advancing head.
+        self._write_head(head + 1)
 
-        self._write_header(
-            head=head,
-            tail=tail,
-            count=count,
-        )
+    # -----------------------------
+    # Consumer
+    # -----------------------------
 
     def read(self) -> Order:
-        if self.is_empty():
+        head = self._read_head()
+        tail = self._read_tail()
+
+        if head == tail:
             raise BufferError("Ring buffer is empty")
 
-        head, tail, count = self._read_header()
-
-        offset = self._slot_offset(tail)
+        index = tail % self.capacity
+        offset = self._slot_offset(index)
 
         self._mmap.seek(offset)
 
@@ -162,18 +190,17 @@ class MMapRingBuffer:
 
         order = deserialize_order(data)
 
-        tail = (tail + 1) % self.capacity
-        count -= 1
-
-        self._write_header(
-            head=head,
-            tail=tail,
-            count=count,
-        )
+        # Release the slot by advancing tail.
+        self._write_tail(tail + 1)
 
         return order
 
+    # -----------------------------
+    # Cleanup
+    # -----------------------------
+
     def close(self):
+        self._mmap.flush()
         self._mmap.close()
         self._file.close()
 

@@ -28,9 +28,6 @@ class MarketFirehose:
         for _ in range(count):
             yield self.generate_order()
 
-            # Give the event loop a chance to run other tasks.
-            await asyncio.sleep(0)
-
 
 async def main():
     firehose = MarketFirehose()
@@ -46,7 +43,11 @@ async def main():
 
     elapsed = time.perf_counter() - start
 
-    throughput = received / elapsed if elapsed > 0 else 0
+    throughput = (
+        received / elapsed
+        if elapsed > 0
+        else 0
+    )
 
     print(f"Orders generated: {received}")
     print(f"Elapsed time: {elapsed:.6f} seconds")
