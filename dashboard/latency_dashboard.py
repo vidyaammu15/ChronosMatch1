@@ -1,47 +1,46 @@
 import curses
 import time
 
-from core.types import Order, OrderSide
+from core.ctypes_types import order_to_c
 from engine.matching_engine import MatchingEngine
+from simulator.market_firehose import MarketFirehose
 
 
-def create_demo_orders(engine):
-    for order_id in range(1, 101):
-        if order_id % 2 == 1:
-            order = Order(
-                order_id=order_id,
-                side=OrderSide.BUY,
-                price=65000 - (order_id % 5),
-                quantity=(order_id % 10) + 1,
-                timestamp=time.perf_counter_ns(),
-            )
-        else:
-            order = Order(
-                order_id=order_id,
-                side=OrderSide.SELL,
-                price=65000 + (order_id % 5),
-                quantity=(order_id % 10) + 1,
-                timestamp=time.perf_counter_ns(),
-            )
-
-        engine.process_order(order)
+REFRESH_SECONDS = 0.05
+ORDERS_PER_REFRESH = 10
 
 
 def draw_dashboard(stdscr):
     curses.curs_set(0)
     stdscr.nodelay(True)
 
+    firehose = MarketFirehose()
     engine = MatchingEngine()
-    create_demo_orders(engine)
+
+    total_orders = 0
+    total_trades = 0
 
     while True:
-        start = time.perf_counter_ns()
+        frame_start = time.perf_counter_ns()
+
+        # Process a small batch on every dashboard refresh.
+        for _ in range(ORDERS_PER_REFRESH):
+            order = firehose.generate_order()
+
+            # Use the C-compatible representation at the
+            # matching-engine boundary.
+            c_order = order_to_c(order)
+
+            trades = engine.process_c_order(c_order)
+
+            total_orders += 1
+            total_trades += len(trades)
 
         stdscr.erase()
 
         height, width = stdscr.getmaxyx()
 
-        title = "CHRONOSMATCH - LATENCY DASHBOARD"
+        title = "CHRONOSMATCH - LIVE LATENCY DASHBOARD"
 
         try:
             stdscr.addstr(
@@ -51,13 +50,28 @@ def draw_dashboard(stdscr):
                 curses.A_BOLD,
             )
 
-            stdscr.addstr(2, 2, "ORDER BOOK", curses.A_BOLD)
+            stdscr.addstr(
+                2,
+                2,
+                "LIVE ORDER BOOK",
+                curses.A_BOLD,
+            )
 
             book = engine.book
 
-            stdscr.addstr(4, 4, "ASK", curses.A_BOLD)
+            # -------------------------
+            # ASK SIDE
+            # -------------------------
+
+            stdscr.addstr(
+                4,
+                4,
+                "ASK",
+                curses.A_BOLD,
+            )
 
             ask_prices = sorted(book.asks.keys())
+
             row = 5
 
             for price in ask_prices[:5]:
@@ -74,15 +88,32 @@ def draw_dashboard(stdscr):
 
             best_ask = book.best_ask()
 
+            # -------------------------
+            # SPREAD
+            # -------------------------
+
             if row < height:
-                stdscr.addstr(row, 4, "-" * 25)
+                stdscr.addstr(
+                    row,
+                    4,
+                    "-" * 25,
+                )
 
             row += 2
 
             if row < height:
-                stdscr.addstr(row, 4, "BID", curses.A_BOLD)
+                stdscr.addstr(
+                    row,
+                    4,
+                    "BID",
+                    curses.A_BOLD,
+                )
 
             row += 1
+
+            # -------------------------
+            # BID SIDE
+            # -------------------------
 
             bid_prices = sorted(
                 book.bids.keys(),
@@ -103,49 +134,73 @@ def draw_dashboard(stdscr):
 
             best_bid = book.best_bid()
 
-            if best_bid is not None and best_ask is not None:
+            if (
+                best_bid is not None
+                and best_ask is not None
+            ):
                 spread = best_ask - best_bid
             else:
                 spread = None
 
-            latency_us = (
-                time.perf_counter_ns() - start
+            frame_latency_us = (
+                time.perf_counter_ns() - frame_start
             ) / 1000
 
-            stats_row = min(row + 2, height - 6)
+            stats_row = min(
+                row + 2,
+                max(5, height - 8),
+            )
 
-            if stats_row >= 0:
+            if stats_row < height:
                 stdscr.addstr(
                     stats_row,
                     2,
-                    f"Best Bid   : {best_bid}",
+                    f"Best Bid       : {best_bid}",
                 )
 
+            if stats_row + 1 < height:
                 stdscr.addstr(
                     stats_row + 1,
                     2,
-                    f"Best Ask   : {best_ask}",
+                    f"Best Ask       : {best_ask}",
                 )
 
+            if stats_row + 2 < height:
                 stdscr.addstr(
                     stats_row + 2,
                     2,
-                    f"Spread     : {spread}",
+                    f"Spread         : {spread}",
                 )
 
+            if stats_row + 3 < height:
                 stdscr.addstr(
                     stats_row + 3,
                     2,
-                    f"UI Latency : {latency_us:.3f} us",
+                    f"Orders Processed: {total_orders}",
                 )
 
-            footer = "Press Q to quit"
+            if stats_row + 4 < height:
+                stdscr.addstr(
+                    stats_row + 4,
+                    2,
+                    f"Trades Generated: {total_trades}",
+                )
 
-            stdscr.addstr(
-                height - 1,
-                max(0, width - len(footer) - 2),
-                footer,
-            )
+            if stats_row + 5 < height:
+                stdscr.addstr(
+                    stats_row + 5,
+                    2,
+                    f"Frame Latency  : {frame_latency_us:.3f} us",
+                )
+
+            footer = "Q = Quit"
+
+            if height > 0:
+                stdscr.addstr(
+                    height - 1,
+                    max(0, width - len(footer) - 2),
+                    footer,
+                )
 
         except curses.error:
             pass
@@ -157,7 +212,7 @@ def draw_dashboard(stdscr):
         if key in (ord("q"), ord("Q")):
             break
 
-        time.sleep(0.05)
+        time.sleep(REFRESH_SECONDS)
 
 
 def main():

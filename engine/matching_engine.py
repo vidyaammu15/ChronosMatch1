@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from core.ctypes_types import COrder, c_to_order
 from core.types import Order, OrderSide
 from engine.order_book import LimitOrderBook
 
@@ -17,8 +18,7 @@ class MatchingEngine:
         self.book = LimitOrderBook()
 
     def process_order(self, order: Order):
-        """Process an incoming order and return generated trades."""
-
+        """Process a normal Python Order."""
         trades = []
 
         if order.side == OrderSide.BUY:
@@ -34,9 +34,25 @@ class MatchingEngine:
 
         return trades
 
+    def process_c_order(self, c_order: COrder):
+        """
+        Process a C-compatible order.
+
+        The C-compatible structure is converted at the
+        matching-engine boundary so the existing order-book
+        implementation remains compatible.
+        """
+        if not isinstance(c_order, COrder):
+            raise TypeError(
+                "process_c_order expects a COrder"
+            )
+
+        order = c_to_order(c_order)
+
+        return self.process_order(order)
+
     def cancel_order(self, order: Order):
         """Cancel a resting order."""
-
         return self.book.cancel_order(order)
 
     def _match_buy(self, incoming: Order):
@@ -48,7 +64,6 @@ class MatchingEngine:
             if best_ask is None:
                 break
 
-            # No match if BUY price is below SELL price.
             if incoming.price < best_ask:
                 break
 
@@ -92,7 +107,6 @@ class MatchingEngine:
             if best_bid is None:
                 break
 
-            # No match if SELL price is above BUY price.
             if incoming.price > best_bid:
                 break
 
