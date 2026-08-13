@@ -6,9 +6,9 @@ from simulator.market_firehose import MarketFirehose
 
 
 FILE_PATH = "chronosmatch_firehose.bin"
-CAPACITY = 4096
+CAPACITY = 131072
 ORDER_COUNT = 100000
-BATCH_SIZE = 256
+BATCH_SIZE = 1024
 
 
 async def produce_orders():
@@ -24,22 +24,11 @@ async def produce_orders():
 
     try:
         while produced < ORDER_COUNT:
-
-            # Check available space in the ring buffer.
-            head = buffer.head
-            tail = buffer.tail
-
-            available = CAPACITY - (head - tail)
-
-            if available <= 0:
-                # Yield only when the consumer needs to free space.
-                await asyncio.sleep(0)
-                continue
+            remaining = ORDER_COUNT - produced
 
             batch_count = min(
                 BATCH_SIZE,
-                available,
-                ORDER_COUNT - produced,
+                remaining,
             )
 
             orders = [
@@ -50,6 +39,9 @@ async def produce_orders():
             written = buffer.write_batch(orders)
 
             produced += written
+
+            # Give another asyncio task/process a chance to run.
+            await asyncio.sleep(0)
 
         return produced
 

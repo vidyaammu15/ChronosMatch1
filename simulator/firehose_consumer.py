@@ -4,7 +4,7 @@ from ipc.mmap_ring_buffer import MMapRingBuffer
 
 
 FILE_PATH = "chronosmatch_firehose.bin"
-CAPACITY = 4096
+CAPACITY = 131072
 EXPECTED_ORDERS = 100000
 
 
