@@ -67,8 +67,18 @@ def main():
         print(f"  Price      : {trade.price}")
         print(f"  Quantity   : {trade.quantity}")
 
+        print()
+        print("ENGINE TIMING:")
+        print(f"  Engine Entry : {trade.engine_enter_ns} ns")
+        print(f"  Engine Exit  : {trade.engine_exit_ns} ns")
+        print(f"  Latency      : {trade.latency_ns} ns")
+        print(
+            f"  Latency      : "
+            f"{trade.latency_ns / 1000:.3f} microseconds"
+        )
+
     print()
-    print(f"Matching latency: {elapsed_ns / 1000:.3f} microseconds")
+    print(f"Total verification time: {elapsed_ns} ns")
 
     assert buy_trades == []
     assert len(sell_trades) == 1

@@ -1,4 +1,5 @@
 from dataclasses import dataclass
+import time
 
 from core.ctypes_types import COrder, c_to_order
 from core.types import Order, OrderSide
@@ -11,6 +12,9 @@ class Trade:
     sell_order_id: int
     price: int
     quantity: int
+    engine_enter_ns: int = 0
+    engine_exit_ns: int = 0
+    latency_ns: int = 0
 
 
 class MatchingEngine:
@@ -18,21 +22,25 @@ class MatchingEngine:
         self.book = LimitOrderBook()
 
     def process_order(self, order: Order):
-        """Process a normal Python Order."""
-        trades = []
+        """Process a normal Python Order with nanosecond timing."""
+
+        engine_enter_ns = time.perf_counter_ns()
 
         if order.side == OrderSide.BUY:
-            trades = self._match_buy(order)
-
-        elif order.side == OrderSide.SELL:
-            trades = self._match_sell(order)
-
-        else:
-            raise ValueError(
-                f"Unsupported order side: {order.side}"
+            return self._match_buy(
+                order,
+                engine_enter_ns,
             )
 
-        return trades
+        if order.side == OrderSide.SELL:
+            return self._match_sell(
+                order,
+                engine_enter_ns,
+            )
+
+        raise ValueError(
+            f"Unsupported order side: {order.side}"
+        )
 
     def process_c_order(self, c_order: COrder):
         """
@@ -55,7 +63,11 @@ class MatchingEngine:
         """Cancel a resting order."""
         return self.book.cancel_order(order)
 
-    def _match_buy(self, incoming: Order):
+    def _match_buy(
+        self,
+        incoming: Order,
+        engine_enter_ns: int,
+    ):
         trades = []
 
         while incoming.quantity > 0:
@@ -75,12 +87,19 @@ class MatchingEngine:
                 resting.quantity,
             )
 
+            engine_exit_ns = time.perf_counter_ns()
+
             trades.append(
                 Trade(
                     buy_order_id=incoming.order_id,
                     sell_order_id=resting.order_id,
                     price=resting.price,
                     quantity=trade_quantity,
+                    engine_enter_ns=engine_enter_ns,
+                    engine_exit_ns=engine_exit_ns,
+                    latency_ns=(
+                        engine_exit_ns - engine_enter_ns
+                    ),
                 )
             )
 
@@ -98,7 +117,11 @@ class MatchingEngine:
 
         return trades
 
-    def _match_sell(self, incoming: Order):
+    def _match_sell(
+        self,
+        incoming: Order,
+        engine_enter_ns: int,
+    ):
         trades = []
 
         while incoming.quantity > 0:
@@ -118,12 +141,19 @@ class MatchingEngine:
                 resting.quantity,
             )
 
+            engine_exit_ns = time.perf_counter_ns()
+
             trades.append(
                 Trade(
                     buy_order_id=resting.order_id,
                     sell_order_id=incoming.order_id,
                     price=resting.price,
                     quantity=trade_quantity,
+                    engine_enter_ns=engine_enter_ns,
+                    engine_exit_ns=engine_exit_ns,
+                    latency_ns=(
+                        engine_exit_ns - engine_enter_ns
+                    ),
                 )
             )
 
