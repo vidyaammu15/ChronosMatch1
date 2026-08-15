@@ -7,3 +7,9 @@ __pycache__/
 
 chronosmatch_ring.bin
 chronosmatch_firehose.bin
+# Cython build artifacts
+build/
+*.pyd
+*.c
+*.lib
+*.exp
