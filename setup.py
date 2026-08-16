@@ -1,14 +1,16 @@
 from setuptools import setup, Extension
 from Cython.Build import cythonize
 
-
 extensions = [
     Extension(
         "engine.price_math",
         ["engine/price_math.pyx"],
-    )
+    ),
+    Extension(
+        "engine.cython_matcher",
+        ["engine/cython_matcher.pyx"],
+    ),
 ]
-
 
 setup(
     name="chronosmatch-cython",
