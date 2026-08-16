@@ -12,12 +12,14 @@ CAPACITY = 131072
 ORDER_COUNT = 100_000
 
 
-def producer(result_queue):
+def producer(result_queue, ready_event):
     buffer = MMapRingBuffer(
         file_path=FILE_PATH,
         capacity=CAPACITY,
         create=True,
     )
+
+    ready_event.set()
 
     produced = 0
 
@@ -43,7 +45,9 @@ def producer(result_queue):
         buffer.close()
 
 
-def consumer(result_queue):
+def consumer(result_queue, ready_event):
+    ready_event.wait()
+
     buffer = MMapRingBuffer(
         file_path=FILE_PATH,
         capacity=CAPACITY,
@@ -73,14 +77,16 @@ def main():
     producer_queue = mp.Queue()
     consumer_queue = mp.Queue()
 
-    consumer_process = mp.Process(
-        target=consumer,
-        args=(consumer_queue,),
-    )
+    ready_event = mp.Event()
 
     producer_process = mp.Process(
         target=producer,
-        args=(producer_queue,),
+        args=(producer_queue, ready_event),
+    )
+
+    consumer_process = mp.Process(
+        target=consumer,
+        args=(consumer_queue, ready_event),
     )
 
     start = time.perf_counter_ns()
@@ -91,9 +97,7 @@ def main():
     producer_process.join()
     consumer_process.join()
 
-    elapsed_ns = (
-        time.perf_counter_ns() - start
-    )
+    elapsed_ns = time.perf_counter_ns() - start
 
     produced = producer_queue.get()
     consumed = consumer_queue.get()
@@ -129,14 +133,12 @@ def main():
 
     if produced != ORDER_COUNT:
         raise RuntimeError(
-            f"Expected {ORDER_COUNT} produced orders, "
-            f"got {produced}"
+            f"Expected {ORDER_COUNT} produced orders, got {produced}"
         )
 
     if consumed != ORDER_COUNT:
         raise RuntimeError(
-            f"Expected {ORDER_COUNT} consumed orders, "
-            f"got {consumed}"
+            f"Expected {ORDER_COUNT} consumed orders, got {consumed}"
         )
 
     print("VERIFICATION PASSED")
