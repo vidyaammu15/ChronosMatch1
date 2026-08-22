@@ -1,0 +1,161 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>ChronosMatch Dashboard</title>
+
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+
+<body>
+
+<div class="container">
+
+    <header>
+        <h1>⚡ ChronosMatch</h1>
+        <p>High-Frequency Trading Engine Monitoring Dashboard</p>
+        <div class="status">
+            <span class="status-dot"></span>
+            SYSTEM ONLINE
+        </div>
+    </header>
+
+
+    <section class="pipeline">
+        <h2>System Pipeline</h2>
+
+        <div class="pipeline-flow">
+            <div class="step">Market Firehose</div>
+            <div class="arrow">→</div>
+            <div class="step">mmap IPC</div>
+            <div class="arrow">→</div>
+            <div class="step">Matching Engine</div>
+            <div class="arrow">→</div>
+            <div class="step">Cython Engine</div>
+            <div class="arrow">→</div>
+            <div class="step">Metrics</div>
+        </div>
+    </section>
+
+
+    <section class="metrics-grid">
+
+        <div class="metric-card">
+            <h3>Orders Processed</h3>
+            <p id="orders">--</p>
+        </div>
+
+        <div class="metric-card">
+            <h3>Trades Generated</h3>
+            <p id="trades">--</p>
+        </div>
+
+        <div class="metric-card">
+            <h3>Average Latency</h3>
+            <p id="latency">--</p>
+        </div>
+
+        <div class="metric-card">
+            <h3>Throughput</h3>
+            <p id="throughput">--</p>
+        </div>
+
+    </section>
+
+
+    <section class="performance">
+
+        <h2>⚙ Engine Performance</h2>
+
+        <div class="performance-row">
+            <span>C-Level Optimization</span>
+            <strong id="c-level">--</strong>
+        </div>
+
+        <div class="performance-row">
+            <span>GIL-Free Matching</span>
+            <strong id="gil-free">--</strong>
+        </div>
+
+        <div class="performance-row">
+            <span>Automated Tests</span>
+            <strong id="tests">--</strong>
+        </div>
+
+    </section>
+
+
+    <section class="orderbook">
+
+        <h2>📊 Live Order Book</h2>
+
+        <div class="book-grid">
+
+            <div class="book">
+                <h3>BIDS</h3>
+
+                <div class="table-header">
+                    <span>Price</span>
+                    <span>Quantity</span>
+                </div>
+
+                <div class="bid-row">
+                    <span>10100</span>
+                    <span>500</span>
+                </div>
+
+                <div class="bid-row">
+                    <span>10090</span>
+                    <span>750</span>
+                </div>
+
+                <div class="bid-row">
+                    <span>10080</span>
+                    <span>300</span>
+                </div>
+
+            </div>
+
+
+            <div class="book">
+                <h3>ASKS</h3>
+
+                <div class="table-header">
+                    <span>Price</span>
+                    <span>Quantity</span>
+                </div>
+
+                <div class="ask-row">
+                    <span>10110</span>
+                    <span>400</span>
+                </div>
+
+                <div class="ask-row">
+                    <span>10120</span>
+                    <span>600</span>
+                </div>
+
+                <div class="ask-row">
+                    <span>10130</span>
+                    <span>250</span>
+                </div>
+
+            </div>
+
+        </div>
+
+    </section>
+
+
+    <footer>
+        ChronosMatch • Zero-Copy High-Frequency Trading Engine • Infotact Project
+    </footer>
+
+</div>
+
+<script src="/static/script.js"></script>
+
+</body>
+</html>
