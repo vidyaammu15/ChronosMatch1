@@ -4,6 +4,7 @@ import time
 from core.ctypes_types import COrder, c_to_order
 from core.types import Order, OrderSide
 from engine.order_book import LimitOrderBook
+from metrics.latency_metrics import LatencyMetrics
 
 
 @dataclass
@@ -18,8 +19,10 @@ class Trade:
 
 
 class MatchingEngine:
+
     def __init__(self):
         self.book = LimitOrderBook()
+        self.metrics = LatencyMetrics()
 
     def process_order(self, order: Order):
         """Process a normal Python Order with nanosecond timing."""
@@ -27,16 +30,10 @@ class MatchingEngine:
         engine_enter_ns = time.perf_counter_ns()
 
         if order.side == OrderSide.BUY:
-            return self._match_buy(
-                order,
-                engine_enter_ns,
-            )
+            return self._match_buy(order, engine_enter_ns)
 
         if order.side == OrderSide.SELL:
-            return self._match_sell(
-                order,
-                engine_enter_ns,
-            )
+            return self._match_sell(order, engine_enter_ns)
 
         raise ValueError(
             f"Unsupported order side: {order.side}"
@@ -45,11 +42,8 @@ class MatchingEngine:
     def process_c_order(self, c_order: COrder):
         """
         Process a C-compatible order.
-
-        The C-compatible structure is converted at the
-        matching-engine boundary so the existing order-book
-        implementation remains compatible.
         """
+
         if not isinstance(c_order, COrder):
             raise TypeError(
                 "process_c_order expects a COrder"
@@ -68,9 +62,11 @@ class MatchingEngine:
         incoming: Order,
         engine_enter_ns: int,
     ):
+
         trades = []
 
         while incoming.quantity > 0:
+
             best_ask = self.book.best_ask()
 
             if best_ask is None:
@@ -89,6 +85,12 @@ class MatchingEngine:
 
             engine_exit_ns = time.perf_counter_ns()
 
+            latency_ns = (
+                engine_exit_ns - engine_enter_ns
+            )
+
+            self.metrics.record(latency_ns)
+
             trades.append(
                 Trade(
                     buy_order_id=incoming.order_id,
@@ -97,9 +99,7 @@ class MatchingEngine:
                     quantity=trade_quantity,
                     engine_enter_ns=engine_enter_ns,
                     engine_exit_ns=engine_exit_ns,
-                    latency_ns=(
-                        engine_exit_ns - engine_enter_ns
-                    ),
+                    latency_ns=latency_ns,
                 )
             )
 
@@ -107,6 +107,7 @@ class MatchingEngine:
             resting.quantity -= trade_quantity
 
             if resting.quantity == 0:
+
                 queue.popleft()
 
                 if not queue:
@@ -122,9 +123,11 @@ class MatchingEngine:
         incoming: Order,
         engine_enter_ns: int,
     ):
+
         trades = []
 
         while incoming.quantity > 0:
+
             best_bid = self.book.best_bid()
 
             if best_bid is None:
@@ -143,6 +146,12 @@ class MatchingEngine:
 
             engine_exit_ns = time.perf_counter_ns()
 
+            latency_ns = (
+                engine_exit_ns - engine_enter_ns
+            )
+
+            self.metrics.record(latency_ns)
+
             trades.append(
                 Trade(
                     buy_order_id=resting.order_id,
@@ -151,9 +160,7 @@ class MatchingEngine:
                     quantity=trade_quantity,
                     engine_enter_ns=engine_enter_ns,
                     engine_exit_ns=engine_exit_ns,
-                    latency_ns=(
-                        engine_exit_ns - engine_enter_ns
-                    ),
+                    latency_ns=latency_ns,
                 )
             )
 
@@ -161,6 +168,7 @@ class MatchingEngine:
             resting.quantity -= trade_quantity
 
             if resting.quantity == 0:
+
                 queue.popleft()
 
                 if not queue:

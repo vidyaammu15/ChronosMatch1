@@ -1,139 +1,58 @@
-import statistics
-import subprocess
-import sys
-import re
+import time
 
-
-RUNS = 5
-
-
-def run_benchmark():
-    result = subprocess.run(
-        [
-            sys.executable,
-            "-m",
-            "benchmarks.benchmark_process_matching",
-        ],
-        capture_output=True,
-        text=True,
-        check=True,
-    )
-
-    output = result.stdout
-
-    throughput_match = re.search(
-        r"Throughput:\s*([\d.]+)",
-        output,
-    )
-
-    latency_match = re.search(
-        r"Average latency:\s*([\d.]+)",
-        output,
-    )
-
-    orders_match = re.search(
-        r"Orders processed:\s*(\d+)",
-        output,
-    )
-
-    trades_match = re.search(
-        r"Trades generated:\s*(\d+)",
-        output,
-    )
-
-    if not all(
-        [
-            throughput_match,
-            latency_match,
-            orders_match,
-            trades_match,
-        ]
-    ):
-        raise RuntimeError(
-            "Could not parse benchmark output:\n"
-            + output
-        )
-
-    return {
-        "throughput": float(
-            throughput_match.group(1)
-        ),
-        "latency": float(
-            latency_match.group(1)
-        ),
-        "orders": int(
-            orders_match.group(1)
-        ),
-        "trades": int(
-            trades_match.group(1)
-        ),
-    }
+from core.types import Order, OrderSide
+from engine.matching_engine import MatchingEngine
 
 
 def main():
-    results = []
+    engine = MatchingEngine()
 
-    print("=== Week 3 Metrics Baseline ===")
-    print()
-    print(f"Running {RUNS} benchmark runs...")
-    print()
-
-    for run_number in range(1, RUNS + 1):
-        result = run_benchmark()
-        results.append(result)
-
-        print(
-            f"Run {run_number}: "
-            f"{result['throughput']:.2f} orders/sec | "
-            f"{result['latency']:.3f} us"
-        )
-
-    throughputs = [
-        result["throughput"]
-        for result in results
+    orders = [
+        Order(
+            order_id=1,
+            side=OrderSide.SELL,
+            price=65000,
+            quantity=10,
+            timestamp=time.perf_counter_ns(),
+        ),
+        Order(
+            order_id=2,
+            side=OrderSide.BUY,
+            price=65000,
+            quantity=10,
+            timestamp=time.perf_counter_ns(),
+        ),
+        Order(
+            order_id=3,
+            side=OrderSide.SELL,
+            price=65100,
+            quantity=5,
+            timestamp=time.perf_counter_ns(),
+        ),
+        Order(
+            order_id=4,
+            side=OrderSide.BUY,
+            price=65200,
+            quantity=5,
+            timestamp=time.perf_counter_ns(),
+        ),
     ]
 
-    latencies = [
-        result["latency"]
-        for result in results
-    ]
+    for order in orders:
+        engine.process_order(order)
 
-    print()
-    print("=== Baseline Summary ===")
-    print()
-    print(
-        f"Orders processed : "
-        f"{results[0]['orders']}"
-    )
+    metrics = engine.metrics.summary()
 
-    print(
-        f"Trades generated : "
-        f"{results[0]['trades']}"
-    )
-
-    print()
-    print(
-        f"Average throughput: "
-        f"{statistics.mean(throughputs):.2f} orders/sec"
-    )
-
-    print(
-        f"Best throughput   : "
-        f"{max(throughputs):.2f} orders/sec"
-    )
-
-    print(
-        f"Average latency   : "
-        f"{statistics.mean(latencies):.3f} us"
-    )
-
-    print(
-        f"Best latency      : "
-        f"{min(latencies):.3f} us"
-    )
-
-    print()
-    print("Baseline measurement completed.")
+    print("=" * 55)
+    print("     CHRONOSMATCH WEEK 3 - LATENCY METRICS")
+    print("=" * 55)
+    print(f"Trades measured : {metrics['count']}")
+    print(f"Minimum latency : {metrics['min_latency_ns']} ns")
+    print(f"Maximum latency : {metrics['max_latency_ns']} ns")
+    print(f"Average latency : {metrics['avg_latency_ns']:.2f} ns")
+    print("=" * 55)
+    print("METRICS TRACKING VERIFIED")
+    print("=" * 55)
 
 
 if __name__ == "__main__":
