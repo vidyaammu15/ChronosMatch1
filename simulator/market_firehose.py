@@ -11,16 +11,31 @@ class MarketFirehose:
 
     def generate_order(self) -> Order:
         self.order_id += 1
+        is_buy = (self.order_id % 2 == 1)
+        
+        # 80% passive orders to populate book, 20% aggressive orders to trigger trades
+        is_aggressive = ((self.order_id % 5) == 0)
+
+        if is_buy:
+            side = OrderSide.BUY
+            if is_aggressive:
+                price = 65010 + ((self.order_id * 13) % 40)
+            else:
+                price = 64990 - ((self.order_id * 17) % 200)
+        else:
+            side = OrderSide.SELL
+            if is_aggressive:
+                price = 64990 - ((self.order_id * 11) % 40)
+            else:
+                price = 65010 + ((self.order_id * 19) % 200)
+
+        quantity = 100 + ((self.order_id * 37) % 900)
 
         return Order(
             order_id=self.order_id,
-            side=(
-                OrderSide.BUY
-                if self.order_id % 2
-                else OrderSide.SELL
-            ),
-            price=65000 + (self.order_id % 100),
-            quantity=1 + (self.order_id % 10),
+            side=side,
+            price=price,
+            quantity=quantity,
             timestamp=time.perf_counter_ns(),
         )
 

@@ -1,161 +1,374 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-
-    <title>ChronosMatch Dashboard</title>
-
+    <title>ChronosMatch — High-Frequency Trading Engine Dashboard</title>
+    <meta name="description"
+        content="Real-time monitoring dashboard for ChronosMatch Zero-Copy High-Frequency Trading Engine with mmap IPC and Cython matching.">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600;700&display=swap"
+        rel="stylesheet">
     <link rel="stylesheet" href="/static/style.css">
 </head>
 
 <body>
 
-<div class="container">
+    <div class="app-container">
 
-    <header>
-        <h1>⚡ ChronosMatch</h1>
-        <p>High-Frequency Trading Engine Monitoring Dashboard</p>
-        <div class="status">
-            <span class="status-dot"></span>
-            SYSTEM ONLINE
-        </div>
-    </header>
-
-
-    <section class="pipeline">
-        <h2>System Pipeline</h2>
-
-        <div class="pipeline-flow">
-            <div class="step">Market Firehose</div>
-            <div class="arrow">→</div>
-            <div class="step">mmap IPC</div>
-            <div class="arrow">→</div>
-            <div class="step">Matching Engine</div>
-            <div class="arrow">→</div>
-            <div class="step">Cython Engine</div>
-            <div class="arrow">→</div>
-            <div class="step">Metrics</div>
-        </div>
-    </section>
-
-
-    <section class="metrics-grid">
-
-        <div class="metric-card">
-            <h3>Orders Processed</h3>
-            <p id="orders">--</p>
-        </div>
-
-        <div class="metric-card">
-            <h3>Trades Generated</h3>
-            <p id="trades">--</p>
-        </div>
-
-        <div class="metric-card">
-            <h3>Average Latency</h3>
-            <p id="latency">--</p>
-        </div>
-
-        <div class="metric-card">
-            <h3>Throughput</h3>
-            <p id="throughput">--</p>
-        </div>
-
-    </section>
-
-
-    <section class="performance">
-
-        <h2>⚙ Engine Performance</h2>
-
-        <div class="performance-row">
-            <span>C-Level Optimization</span>
-            <strong id="c-level">--</strong>
-        </div>
-
-        <div class="performance-row">
-            <span>GIL-Free Matching</span>
-            <strong id="gil-free">--</strong>
-        </div>
-
-        <div class="performance-row">
-            <span>Automated Tests</span>
-            <strong id="tests">--</strong>
-        </div>
-
-    </section>
-
-
-    <section class="orderbook">
-
-        <h2>📊 Live Order Book</h2>
-
-        <div class="book-grid">
-
-            <div class="book">
-                <h3>BIDS</h3>
-
-                <div class="table-header">
-                    <span>Price</span>
-                    <span>Quantity</span>
+        <!-- HEADER -->
+        <header class="header">
+            <div class="header-brand">
+                <div class="logo-icon">⚡</div>
+                <div>
+                    <h1>ChronosMatch</h1>
+                    <p class="subtitle">High-Frequency Trading Engine Monitoring Dashboard</p>
                 </div>
-
-                <div class="bid-row">
-                    <span>10100</span>
-                    <span>500</span>
+            </div>
+            <div class="header-actions">
+                <a id="user-profile" href="/profile" class="user-profile-badge hidden" title="View Profile">
+                    <span class="user-avatar">👤</span>
+                    <span id="user-display-name">Trader</span>
+                </a>
+                <button id="btn-logout" class="btn-logout hidden" title="Log Out">
+                    🚪 Logout
+                </button>
+                <div class="header-status">
+                    <span class="status-badge online">
+                        <span class="status-dot"></span>
+                        <span id="system-status-text">SYSTEM ONLINE</span>
+                    </span>
                 </div>
+            </div>
+        </header>
 
-                <div class="bid-row">
-                    <span>10090</span>
-                    <span>750</span>
-                </div>
+        <!-- INTERACTIVE CONTROL TOOLBAR -->
+        <div class="control-toolbar">
+            <div class="button-group">
+                <button id="btn-simulate" class="btn btn-primary">
+                    <span class="btn-icon">🚀</span> Run Simulation
+                </button>
 
-                <div class="bid-row">
-                    <span>10080</span>
-                    <span>300</span>
-                </div>
+                <select id="sim-count-select" class="select-input" title="Batch Size">
+                    <option value="10000">10,000 Orders</option>
+                    <option value="50000">50,000 Orders</option>
+                    <option value="100000">100,000 Orders</option>
+                </select>
 
+                <label class="toggle-container" title="Use Cython C-level batch matcher">
+                    <input type="checkbox" id="cython-toggle" checked>
+                    <span class="toggle-slider"></span>
+                    <span class="toggle-label">Cython Engine</span>
+                </label>
+
+                <button id="btn-refresh" class="btn btn-secondary">
+                    <span class="btn-icon">🔄</span> Refresh Metrics
+                </button>
+
+                <button id="btn-reset" class="btn btn-danger">
+                    <span class="btn-icon">⚡</span> Reset
+                </button>
             </div>
 
-
-            <div class="book">
-                <h3>ASKS</h3>
-
-                <div class="table-header">
-                    <span>Price</span>
-                    <span>Quantity</span>
-                </div>
-
-                <div class="ask-row">
-                    <span>10110</span>
-                    <span>400</span>
-                </div>
-
-                <div class="ask-row">
-                    <span>10120</span>
-                    <span>600</span>
-                </div>
-
-                <div class="ask-row">
-                    <span>10130</span>
-                    <span>250</span>
-                </div>
-
+            <div id="sim-notification" class="notification-banner hidden">
+                <span id="notification-text">Ready</span>
             </div>
+        </div>
+
+        <!-- SYSTEM PIPELINE -->
+        <section class="card pipeline-card">
+            <div class="card-header">
+                <h2>🔗 System Pipeline Architecture</h2>
+                <span class="badge badge-glow">Zero-Copy Memory Mapped IPC</span>
+            </div>
+            <div class="pipeline-flow">
+                <div class="pipeline-step">
+                    <span class="step-icon">📡</span>
+                    <div class="step-info">
+                        <span class="step-title">Market Firehose</span>
+                        <span class="step-desc">Order Generator</span>
+                    </div>
+                </div>
+                <div class="pipeline-arrow">➔</div>
+                <div class="pipeline-step">
+                    <span class="step-icon">💾</span>
+                    <div class="step-info">
+                        <span class="step-title">mmap IPC</span>
+                        <span class="step-desc">Ring Buffer</span>
+                    </div>
+                </div>
+                <div class="pipeline-arrow">➔</div>
+                <div class="pipeline-step highlight">
+                    <span class="step-icon">⚙️</span>
+                    <div class="step-info">
+                        <span class="step-title">Matching Engine</span>
+                        <span class="step-desc">Limit Order Book</span>
+                    </div>
+                </div>
+                <div class="pipeline-arrow">➔</div>
+                <div class="pipeline-step cython">
+                    <span class="step-icon">⚡</span>
+                    <div class="step-info">
+                        <span class="step-title">Cython Engine</span>
+                        <span class="step-desc">C-Level Matcher</span>
+                    </div>
+                </div>
+                <div class="pipeline-arrow">➔</div>
+                <div class="pipeline-step">
+                    <span class="step-icon">📊</span>
+                    <div class="step-info">
+                        <span class="step-title">Metrics</span>
+                        <span class="step-desc">Nanosecond Tracker</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- LIVE METRICS GRID -->
+        <section class="metrics-grid">
+            <div class="metric-card">
+                <div class="metric-icon">📥</div>
+                <div class="metric-content">
+                    <h3>Orders Processed</h3>
+                    <p id="orders" class="mono">--</p>
+                    <span class="metric-foot">Total ingested limit orders</span>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-icon">🤝</div>
+                <div class="metric-content">
+                    <h3>Trades Generated</h3>
+                    <p id="trades" class="mono">--</p>
+                    <span class="metric-foot">Matched execution trades</span>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-icon">⏱️</div>
+                <div class="metric-content">
+                    <h3>Average Latency</h3>
+                    <p id="latency" class="mono text-cyan">--</p>
+                    <span class="metric-foot">Nanosecond per order execution</span>
+                </div>
+            </div>
+
+            <div class="metric-card">
+                <div class="metric-icon">⚡</div>
+                <div class="metric-content">
+                    <h3>Throughput</h3>
+                    <p id="throughput" class="mono text-green">--</p>
+                    <span class="metric-foot">Orders processed per second</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- ENGINE PERFORMANCE & LIVE ORDER BOOK -->
+        <div class="dashboard-grid">
+
+            <!-- PERFORMANCE STATUS -->
+            <section class="card performance-card">
+                <div class="card-header">
+                    <h2>⚙️ Engine Performance & Capabilities</h2>
+                </div>
+                <div class="performance-list">
+                    <div class="performance-item">
+                        <span class="perf-label">C-Level Optimization</span>
+                        <strong id="c-level" class="badge-status">--</strong>
+                    </div>
+                    <div class="performance-item">
+                        <span class="perf-label">GIL-Free Matching</span>
+                        <strong id="gil-free" class="badge-status">--</strong>
+                    </div>
+                    <div class="performance-item">
+                        <span class="perf-label">Automated Tests Suite</span>
+                        <strong id="tests" class="badge-status">--</strong>
+                    </div>
+                    <div class="performance-item">
+                        <span class="perf-label">IPC Buffer Mechanism</span>
+                        <strong class="text-cyan">mmap Shared Memory</strong>
+                    </div>
+                    <div class="performance-item">
+                        <span class="perf-label">Order Priority Strategy</span>
+                        <strong class="text-green">Price / Time Priority</strong>
+                    </div>
+                </div>
+            </section>
+
+            <!-- LIVE ORDER BOOK -->
+            <section class="card orderbook-card">
+                <div class="card-header">
+                    <h2>📊 Live Order Book</h2>
+                    <span class="badge badge-live">REALTIME</span>
+                </div>
+
+                <div class="book-grid">
+                    <!-- BIDS TABLE -->
+                    <div class="book-side bids-side">
+                        <h3 class="side-title bids-header">BIDS <span class="side-badge">BUY</span></h3>
+                        <div class="table-wrapper">
+                            <table class="book-table">
+                                <thead>
+                                    <tr>
+                                        <th>Price</th>
+                                        <th>Quantity</th>
+                                        <th>Orders</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="bids-body">
+                                    <tr>
+                                        <td colspan="3" class="empty-state">Loading Bids...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+
+                    <!-- ASKS TABLE -->
+                    <div class="book-side asks-side">
+                        <h3 class="side-title asks-header">ASKS <span class="side-badge">SELL</span></h3>
+                        <div class="table-wrapper">
+                            <table class="book-table">
+                                <thead>
+                                    <tr>
+                                        <th>Price</th>
+                                        <th>Quantity</th>
+                                        <th>Orders</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="asks-body">
+                                    <tr>
+                                        <td colspan="3" class="empty-state">Loading Asks...</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </section>
 
         </div>
 
-    </section>
+        <!-- PERFORMANCE COMPARISON -->
+        <section class="card comparison-card-container">
+            <div class="card-header">
+                <h2>📊 Performance Comparison</h2>
+                <span class="badge badge-comparison">Standard vs Cython Engine</span>
+            </div>
 
+            <div class="comparison-grid">
+                <!-- CARD 1: STANDARD ENGINE -->
+                <div class="engine-card card-standard">
+                    <div class="engine-card-header">
+                        <div class="engine-title-group">
+                            <span class="engine-icon icon-blue">🐍</span>
+                            <h3>Standard Engine</h3>
+                        </div>
+                        <span id="std-status-badge" class="engine-status-badge status-pending">NOT RUN</span>
+                    </div>
+                    <div class="comparison-metrics-list">
+                        <div class="comp-row">
+                            <span class="comp-label">Average Latency</span>
+                            <strong id="std-comp-latency" class="mono comp-val">--</strong>
+                        </div>
+                        <div class="comp-row">
+                            <span class="comp-label">Throughput</span>
+                            <strong id="std-comp-throughput" class="mono comp-val text-cyan">--</strong>
+                        </div>
+                        <div class="comp-row">
+                            <span class="comp-label">Processing Time</span>
+                            <strong id="std-comp-time" class="mono comp-val">--</strong>
+                        </div>
+                        <div class="comp-row">
+                            <span class="comp-label">Orders Processed</span>
+                            <strong id="std-comp-orders" class="mono comp-val">--</strong>
+                        </div>
+                        <div class="comp-row">
+                            <span class="comp-label">Trades Generated</span>
+                            <strong id="std-comp-trades" class="mono comp-val">--</strong>
+                        </div>
+                    </div>
+                </div>
 
-    <footer>
-        ChronosMatch • Zero-Copy High-Frequency Trading Engine • Infotact Project
-    </footer>
+                <!-- CARD 2: CYTHON ENGINE -->
+                <div class="engine-card card-cython">
+                    <div class="engine-card-header">
+                        <div class="engine-title-group">
+                            <span class="engine-icon icon-green">⚡</span>
+                            <h3>Cython Engine</h3>
+                        </div>
+                        <span id="cy-status-badge" class="engine-status-badge status-pending">NOT RUN</span>
+                    </div>
+                    <div class="comparison-metrics-list">
+                        <div class="comp-row">
+                            <span class="comp-label">Average Latency</span>
+                            <strong id="cy-comp-latency" class="mono comp-val text-cyan">--</strong>
+                        </div>
+                        <div class="comp-row">
+                            <span class="comp-label">Throughput</span>
+                            <strong id="cy-comp-throughput" class="mono comp-val text-green">--</strong>
+                        </div>
+                        <div class="comp-row">
+                            <span class="comp-label">Processing Time</span>
+                            <strong id="cy-comp-time" class="mono comp-val">--</strong>
+                        </div>
+                        <div class="comp-row">
+                            <span class="comp-label">Orders Processed</span>
+                            <strong id="cy-comp-orders" class="mono comp-val">--</strong>
+                        </div>
+                        <div class="comp-row">
+                            <span class="comp-label">Trades Generated</span>
+                            <strong id="cy-comp-trades" class="mono comp-val">--</strong>
+                        </div>
+                    </div>
+                </div>
 
-</div>
+                <!-- CARD 3: PERFORMANCE IMPROVEMENT -->
+                <div class="engine-card card-improvement">
+                    <div class="engine-card-header">
+                        <div class="engine-title-group">
+                            <span class="engine-icon icon-purple">🚀</span>
+                            <h3>Performance Improvement</h3>
+                        </div>
+                        <span id="imp-status-badge" class="engine-status-badge status-pending">PENDING</span>
+                    </div>
 
-<script src="/static/script.js"></script>
+                    <!-- EMPTY / PENDING NOTICE -->
+                    <div id="imp-notice" class="comp-notice-box">
+                        <span class="notice-icon">💡</span>
+                        <p class="notice-text">Run both Standard and Cython simulations to compare performance.</p>
+                    </div>
 
+                    <!-- METRICS RESULT BODY -->
+                    <div id="imp-metrics-body" class="comparison-metrics-list hidden">
+                        <div class="comp-row highlight-row">
+                            <span class="comp-label">Latency Improvement</span>
+                            <strong id="imp-comp-latency" class="mono comp-val text-green boost-val">--</strong>
+                        </div>
+                        <div class="comp-row highlight-row">
+                            <span class="comp-label">Throughput Improvement</span>
+                            <strong id="imp-comp-throughput" class="mono comp-val text-green boost-val">--</strong>
+                        </div>
+                        <div class="comp-row highlight-row">
+                            <span class="comp-label">Processing Speed Improvement</span>
+                            <strong id="imp-comp-speed" class="mono comp-val text-green boost-val">--</strong>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- FOOTER -->
+        <footer class="footer">
+            ChronosMatch • Zero-Copy High-Frequency Trading Engine Monitoring Dashboard
+        </footer>
+
+    </div>
+
+    <script src="/static/script.js"></script>
 </body>
+
 </html>

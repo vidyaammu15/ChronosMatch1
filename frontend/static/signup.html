@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sign Up - ChronosMatch HFT Engine</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Main Stylesheet -->
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="auth-body">
+    <div class="auth-wrapper">
+        <div class="auth-card card">
+            <div class="auth-header">
+                <div class="logo-icon-box">⚡</div>
+                <h1>ChronosMatch</h1>
+                <p class="auth-subtitle">Create your HFT Engine Account</p>
+            </div>
+
+            <div id="auth-error" class="notification-banner auth-banner hidden">
+                <span id="auth-error-text"></span>
+            </div>
+
+            <form id="signup-form" class="auth-form" onsubmit="return false;">
+                <div class="form-group">
+                    <label for="name">Full Name</label>
+                    <input type="text" id="name" class="form-input" placeholder="e.g. Alex Mercer" required autocomplete="name">
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" class="form-input" placeholder="e.g. alex@chronosmatch.com" required autocomplete="email">
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" class="form-input" placeholder="Create a password" required autocomplete="new-password">
+                </div>
+
+                <div class="form-group">
+                    <label for="confirm_password">Confirm Password</label>
+                    <input type="password" id="confirm_password" class="form-input" placeholder="Confirm your password" required autocomplete="new-password">
+                </div>
+
+                <button type="submit" id="btn-signup" class="btn btn-primary btn-auth">
+                    <span class="btn-icon">✨</span> Sign Up
+                </button>
+            </form>
+
+            <div class="auth-footer">
+                <p>Already have an account? <a href="/login" class="auth-link">Login</a></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById("signup-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const name = document.getElementById("name").value.trim();
+            const email = document.getElementById("email").value.trim();
+            const password = document.getElementById("password").value;
+            const confirm_password = document.getElementById("confirm_password").value;
+
+            const errorBanner = document.getElementById("auth-error");
+            const errorText = document.getElementById("auth-error-text");
+            const btn = document.getElementById("btn-signup");
+
+            errorBanner.classList.add("hidden");
+
+            if (!name || !email || !password || !confirm_password) {
+                errorText.textContent = "Please fill in all fields.";
+                errorBanner.classList.remove("hidden");
+                return;
+            }
+
+            if (password !== confirm_password) {
+                errorText.textContent = "Passwords do not match.";
+                errorBanner.classList.remove("hidden");
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '⚡ Creating account...';
+
+            try {
+                const res = await fetch("/api/signup", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ name, email, password, confirm_password })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok || !data.success) {
+                    throw new Error(data.message || "Registration failed.");
+                }
+
+                alert("Account created successfully! Redirecting to login page...");
+                window.location.href = "/login";
+            } catch (err) {
+                errorText.textContent = err.message;
+                errorBanner.classList.remove("hidden");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span class="btn-icon">✨</span> Sign Up';
+            }
+        });
+    </script>
+</body>
+</html>

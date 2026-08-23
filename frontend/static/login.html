@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Login - ChronosMatch HFT Engine</title>
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Main Stylesheet -->
+    <link rel="stylesheet" href="/static/style.css">
+</head>
+<body class="auth-body">
+    <div class="auth-wrapper">
+        <div class="auth-card card">
+            <div class="auth-header">
+                <div class="logo-icon-box">⚡</div>
+                <h1>ChronosMatch</h1>
+                <p class="auth-subtitle">High-Frequency Trading Engine Monitoring Portal</p>
+            </div>
+
+            <div id="auth-error" class="notification-banner auth-banner hidden">
+                <span id="auth-error-text"></span>
+            </div>
+
+            <form id="login-form" class="auth-form" onsubmit="return false;">
+                <div class="form-group">
+                    <label for="email">Email Address</label>
+                    <input type="email" id="email" class="form-input" placeholder="e.g. trader@chronosmatch.com" required autocomplete="email">
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Password</label>
+                    <input type="password" id="password" class="form-input" placeholder="Enter your password" required autocomplete="current-password">
+                </div>
+
+                <button type="submit" id="btn-login" class="btn btn-primary btn-auth">
+                    <span class="btn-icon">🔓</span> Log In
+                </button>
+            </form>
+
+            <div class="auth-footer">
+                <p>Don't have an account? <a href="/signup" class="auth-link">Sign Up</a></p>
+                <p class="auth-demo-hint">Demo Account: <code>demo@chronosmatch.com</code> | <code>password123</code></p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById("login-form").addEventListener("submit", async (e) => {
+            e.preventDefault();
+            const email = document.getElementById("email").value.trim();
+            const password = document.getElementById("password").value;
+            const errorBanner = document.getElementById("auth-error");
+            const errorText = document.getElementById("auth-error-text");
+            const btn = document.getElementById("btn-login");
+
+            errorBanner.classList.add("hidden");
+
+            if (!email || !password) {
+                errorText.textContent = "Please enter both email and password.";
+                errorBanner.classList.remove("hidden");
+                return;
+            }
+
+            btn.disabled = true;
+            btn.innerHTML = '⚡ Logging in...';
+
+            try {
+                const res = await fetch("/api/login", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ email, password })
+                });
+
+                const data = await res.json();
+
+                if (!res.ok || !data.success) {
+                    throw new Error(data.message || "Invalid credentials.");
+                }
+
+                window.location.href = "/";
+            } catch (err) {
+                errorText.textContent = err.message;
+                errorBanner.classList.remove("hidden");
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = '<span class="btn-icon">🔓</span> Log In';
+            }
+        });
+    </script>
+</body>
+</html>

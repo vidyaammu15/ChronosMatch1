@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profile - ChronosMatch HFT Engine</title>
+    <meta name="description" content="User profile page for the ChronosMatch High-Frequency Trading Engine Monitoring Dashboard.">
+
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+
+    <!-- Main Stylesheet -->
+    <link rel="stylesheet" href="/static/style.css">
+
+    <style>
+        /* Toggle helpers — these always win */
+        .pf-hidden { display: none !important; }
+    </style>
+</head>
+<body class="auth-body">
+    <div class="auth-wrapper profile-wrapper">
+        <div class="auth-card profile-card card">
+
+            <!-- ── AVATAR / TITLE ─────────────────────────────── -->
+            <div class="profile-header">
+                <div class="profile-avatar-ring">
+                    <span class="profile-avatar-icon">👤</span>
+                </div>
+                <div class="profile-title-group">
+                    <h1 id="profile-name">Trader Demo</h1>
+                    <span class="profile-role-badge">⚡ HFT Operator</span>
+                </div>
+            </div>
+
+            <!-- ── STATUS BANNER ─────────────────────────────── -->
+            <div id="profile-banner" class="notification-banner auth-banner pf-hidden">
+                <span id="profile-banner-text"></span>
+            </div>
+
+            <!-- ════════════════════════════════════════════════ -->
+            <!--  VIEW MODE                                       -->
+            <!-- ════════════════════════════════════════════════ -->
+            <div id="section-view">
+                <div class="profile-details-section">
+                    <div class="profile-detail-row">
+                        <span class="profile-detail-label">👤 Full Name</span>
+                        <span id="view-name" class="profile-detail-value mono">Trader Demo</span>
+                    </div>
+                    <div class="profile-detail-row">
+                        <span class="profile-detail-label">📧 Email</span>
+                        <span id="view-email" class="profile-detail-value mono">demo@chronosmatch.com</span>
+                    </div>
+                    <div class="profile-detail-row">
+                        <span class="profile-detail-label">🏷️ Role</span>
+                        <span class="profile-detail-value">Trader / User</span>
+                    </div>
+                    <div class="profile-detail-row">
+                        <span class="profile-detail-label">🔒 Account Status</span>
+                        <span class="profile-detail-value">
+                            <span class="status-indicator active-status">● Active</span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- View Mode Buttons -->
+                <div class="profile-actions">
+                    <a href="/" class="btn btn-primary profile-btn">
+                        <span class="btn-icon">📊</span> Back to Dashboard
+                    </a>
+                    <button id="btn-edit" class="btn profile-btn profile-edit-btn">
+                        <span class="btn-icon">✏️</span> Edit Profile
+                    </button>
+                    <button id="btn-profile-logout" class="btn profile-btn profile-logout-btn">
+                        <span class="btn-icon">🚪</span> Logout
+                    </button>
+                </div>
+            </div>
+
+            <!-- ════════════════════════════════════════════════ -->
+            <!--  EDIT MODE  (hidden on load)                     -->
+            <!-- ════════════════════════════════════════════════ -->
+            <div id="section-edit" class="pf-hidden">
+                <div class="profile-details-section">
+                    <!-- Editable: Name -->
+                    <div class="profile-edit-group">
+                        <label class="profile-edit-label" for="edit-name">👤 Full Name</label>
+                        <input type="text" id="edit-name" class="form-input profile-edit-input"
+                               placeholder="Enter your full name">
+                    </div>
+                    <!-- Editable: Email -->
+                    <div class="profile-edit-group">
+                        <label class="profile-edit-label" for="edit-email">📧 Email Address</label>
+                        <input type="email" id="edit-email" class="form-input profile-edit-input"
+                               placeholder="Enter your email">
+                    </div>
+                    <!-- Read-only: Role -->
+                    <div class="profile-detail-row profile-readonly-row">
+                        <span class="profile-detail-label">🏷️ Role</span>
+                        <span class="profile-detail-value profile-readonly-value">
+                            Trader / User <span class="readonly-tag">read-only</span>
+                        </span>
+                    </div>
+                    <!-- Read-only: Status -->
+                    <div class="profile-detail-row profile-readonly-row">
+                        <span class="profile-detail-label">🔒 Account Status</span>
+                        <span class="profile-detail-value profile-readonly-value">
+                            <span class="status-indicator active-status">● Active</span>
+                            <span class="readonly-tag">read-only</span>
+                        </span>
+                    </div>
+                </div>
+
+                <!-- Edit Mode Buttons -->
+                <div class="profile-actions">
+                    <button id="btn-save" class="btn btn-primary profile-btn">
+                        <span class="btn-icon">💾</span> Save Changes
+                    </button>
+                    <button id="btn-cancel" class="btn profile-btn profile-cancel-btn">
+                        <span class="btn-icon">✕</span> Cancel
+                    </button>
+                </div>
+            </div>
+
+            <!-- ── FOOTER ─────────────────────────────────────── -->
+            <div class="profile-footer-note">
+                <small>ChronosMatch • High-Frequency Trading Engine</small>
+            </div>
+
+        </div><!-- /.profile-card -->
+    </div><!-- /.auth-wrapper -->
+
+    <script>
+    // ── State ──────────────────────────────────────────────────────────
+    let currentUser = { name: "Trader Demo", email: "demo@chronosmatch.com" };
+
+    // ── DOM refs ───────────────────────────────────────────────────────
+    const sectionView = document.getElementById("section-view");
+    const sectionEdit = document.getElementById("section-edit");
+
+    // ── Helpers ────────────────────────────────────────────────────────
+    function showBanner(msg, isError = false) {
+        const banner = document.getElementById("profile-banner");
+        const text   = document.getElementById("profile-banner-text");
+        text.textContent        = msg;
+        banner.style.backgroundColor = isError ? "rgba(244,63,94,0.15)"  : "rgba(16,185,129,0.15)";
+        banner.style.borderColor     = isError ? "rgba(244,63,94,0.3)"   : "rgba(16,185,129,0.3)";
+        banner.style.color           = isError ? "#f43f5e"                : "#10b981";
+        banner.classList.remove("pf-hidden");
+        setTimeout(() => banner.classList.add("pf-hidden"), 4000);
+    }
+
+    function applyUserToView(name, email) {
+        document.getElementById("profile-name").textContent  = name;
+        document.getElementById("view-name").textContent     = name;
+        document.getElementById("view-email").textContent    = email;
+    }
+
+    function showView() {
+        sectionEdit.classList.add("pf-hidden");
+        sectionView.classList.remove("pf-hidden");
+    }
+
+    function showEdit() {
+        document.getElementById("edit-name").value  = currentUser.name;
+        document.getElementById("edit-email").value = currentUser.email;
+        sectionView.classList.add("pf-hidden");
+        sectionEdit.classList.remove("pf-hidden");
+    }
+
+    // ── Load profile from server ───────────────────────────────────────
+    async function loadProfile() {
+        try {
+            const res = await fetch("/api/user");
+            if (!res.ok) { window.location.href = "/login"; return; }
+            const data = await res.json();
+            if (!data.user) { window.location.href = "/login"; return; }
+            currentUser = { name: data.user.name || "Trader Demo", email: data.user.email || "demo@chronosmatch.com" };
+            applyUserToView(currentUser.name, currentUser.email);
+        } catch (e) {
+            console.error("Profile load error:", e);
+        }
+    }
+
+    // ── Edit Profile ───────────────────────────────────────────────────
+    document.getElementById("btn-edit").addEventListener("click", showEdit);
+
+    // ── Cancel ─────────────────────────────────────────────────────────
+    document.getElementById("btn-cancel").addEventListener("click", showView);
+
+    // ── Save Changes ───────────────────────────────────────────────────
+    document.getElementById("btn-save").addEventListener("click", async () => {
+        const newName  = document.getElementById("edit-name").value.trim();
+        const newEmail = document.getElementById("edit-email").value.trim();
+        const btn = document.getElementById("btn-save");
+
+        if (!newName || !newEmail) {
+            showBanner("Name and Email cannot be empty.", true);
+            return;
+        }
+
+        btn.disabled = true;
+        btn.textContent = "⚡ Saving...";
+
+        try {
+            const res = await fetch("/api/update-profile", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ name: newName, email: newEmail })
+            });
+            const data = await res.json();
+            if (!res.ok || !data.success) throw new Error(data.message || "Update failed.");
+
+            currentUser = { name: newName, email: newEmail };
+            applyUserToView(newName, newEmail);
+            showView();
+            showBanner("Profile updated successfully.");
+        } catch (err) {
+            showBanner(err.message, true);
+        } finally {
+            btn.disabled = false;
+            btn.innerHTML = '<span class="btn-icon">💾</span> Save Changes';
+        }
+    });
+
+    // ── Logout ─────────────────────────────────────────────────────────
+    document.getElementById("btn-profile-logout").addEventListener("click", async () => {
+        try { await fetch("/api/logout", { method: "POST" }); } catch (_) {}
+        window.location.href = "/login";
+    });
+
+    // ── Init ───────────────────────────────────────────────────────────
+    loadProfile();
+    </script>
+</body>
+</html>
