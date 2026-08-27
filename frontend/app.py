@@ -48,14 +48,16 @@ class DashboardState:
         self.total_trades = 0
         self.last_throughput = 0.0
         self.last_avg_latency_ns = 0.0
+        self.start_timestamp_ns = 0
+        self.end_timestamp_ns = 0
         self.engine = MatchingEngine()
-        self.firehose = MarketFirehose(rate=10000)
+        self.firehose = MarketFirehose(rate=10000, realistic=True)
         self.populate_initial_book()
 
     def populate_initial_book(self):
         """Seed the order book with initial resting limit orders for display."""
         self.engine = MatchingEngine()
-        self.firehose = MarketFirehose(rate=10000)
+        self.firehose = MarketFirehose(rate=10000, realistic=True)
 
         # Seed Bids (Buyers)
         bids = [
@@ -84,8 +86,10 @@ class DashboardState:
         self.total_trades = 0
         self.last_throughput = 0.0
         self.last_avg_latency_ns = 0.0
+        self.start_timestamp_ns = 0
+        self.end_timestamp_ns = 0
         self.engine = MatchingEngine()
-        self.firehose = MarketFirehose(rate=10000)
+        self.firehose = MarketFirehose(rate=10000, realistic=True)
 
 
 state = DashboardState()
@@ -234,6 +238,8 @@ def metrics():
         "avg_latency_ns": round(state.last_avg_latency_ns, 3),
         "average_latency": avg_latency_str,
         "throughput": throughput_str,
+        "start_timestamp_ns": state.start_timestamp_ns,
+        "end_timestamp_ns": state.end_timestamp_ns,
         "cython_enabled": CYTHON_AVAILABLE,
         "gil_free": CYTHON_AVAILABLE,
         "tests_passed": 48,
@@ -279,7 +285,6 @@ def simulate():
     count = int(data.get("count", 10000))
     use_cython = data.get("use_cython", False)
 
-    start_time = time.perf_counter()
     trades_generated = 0
 
     if use_cython and CYTHON_AVAILABLE:
@@ -289,19 +294,28 @@ def simulate():
         prices = np.full(count, 65000, dtype=np.uint64)
         quantities = np.ones(count, dtype=np.uint64)
 
-        c_start = time.perf_counter_ns()
+        start_ns = time.perf_counter_ns()
         trades_generated = process_batch(order_ids, sides, prices, quantities)
-        c_elapsed_ns = time.perf_counter_ns() - c_start
+        end_ns = time.perf_counter_ns()
 
-        elapsed = time.perf_counter() - start_time
-        avg_latency = c_elapsed_ns / count if count > 0 else 0
-        throughput = count / elapsed if elapsed > 0 else 0
+        elapsed_ns = max(1, end_ns - start_ns)
+        elapsed_seconds = elapsed_ns / 1_000_000_000.0
+        avg_latency = elapsed_ns / count if count > 0 else 0
+        throughput = count / elapsed_seconds if elapsed_seconds > 0 else 0
 
-        # Also generate some orders into matching engine book for live display
+        # Update order book visualization with a representative sample
         display_orders_count = min(100, count)
         for _ in range(display_orders_count):
             o = state.firehose.generate_order()
             state.engine.process_order(o)
+
+        state.engine.metrics.record_batch(
+            order_count=count,
+            trade_count=trades_generated,
+            start_ns=start_ns,
+            end_ns=end_ns,
+            avg_latency_ns=avg_latency,
+        )
     else:
         start_ns = time.perf_counter_ns()
         batch_trades = 0
@@ -309,27 +323,42 @@ def simulate():
             order = state.firehose.generate_order()
             trades = state.engine.process_order(order)
             batch_trades += len(trades)
+        end_ns = time.perf_counter_ns()
 
-        elapsed_ns = time.perf_counter_ns() - start_ns
-        elapsed = elapsed_ns / 1_000_000_000.0
+        elapsed_ns = max(1, end_ns - start_ns)
+        elapsed_seconds = elapsed_ns / 1_000_000_000.0
         trades_generated = batch_trades
-        avg_latency = state.engine.metrics.average() if state.engine.metrics.count() > 0 else (elapsed_ns / count if count > 0 else 0)
-        throughput = count / elapsed if elapsed > 0 else 0
+        avg_latency = elapsed_ns / count if count > 0 else 0
+        throughput = count / elapsed_seconds if elapsed_seconds > 0 else 0
+
+        state.engine.metrics.record_batch(
+            order_count=count,
+            trade_count=trades_generated,
+            start_ns=start_ns,
+            end_ns=end_ns,
+            avg_latency_ns=avg_latency,
+        )
 
     state.total_orders += count
     state.total_trades += trades_generated
     state.last_throughput = throughput
     state.last_avg_latency_ns = avg_latency
+    state.start_timestamp_ns = start_ns
+    state.end_timestamp_ns = end_ns
 
     return jsonify({
         "success": True,
+        "engine": "cython" if (use_cython and CYTHON_AVAILABLE) else "standard",
+        "start_timestamp_ns": start_ns,
+        "end_timestamp_ns": end_ns,
         "simulated_orders": count,
         "trades_generated": trades_generated,
         "total_orders": state.total_orders,
         "total_trades": state.total_trades,
         "throughput": round(throughput, 2),
         "avg_latency_ns": round(avg_latency, 3),
-        "elapsed_seconds": round(elapsed, 4)
+        "elapsed_seconds": round(elapsed_seconds, 6),
+        "elapsed_ns": elapsed_ns
     })
 
 

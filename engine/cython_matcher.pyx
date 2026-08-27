@@ -1,4 +1,11 @@
-from libc.stdint cimport uint64_t
+# cython: language_level=3
+# cython: boundscheck=False
+# cython: wraparound=False
+# cython: cdivision=True
+# cython: nonecheck=False
+# cython: initializedcheck=False
+
+from libc.stdint cimport uint64_t, uint8_t
 from libc.stddef cimport size_t
 from libc.stdlib cimport malloc, free
 
@@ -8,44 +15,40 @@ cdef struct COrder:
     uint64_t side
     uint64_t price
     uint64_t quantity
-    bint active
+    uint8_t active
 
 
 cdef inline uint64_t min_quantity(
     uint64_t a,
     uint64_t b,
 ) noexcept nogil:
-    if a < b:
-        return a
-    return b
+    return a if a < b else b
 
 
 cdef inline bint buy_before(
-    COrder* orders,
+    const COrder* orders,
     size_t a,
     size_t b,
 ) noexcept nogil:
     if orders[a].price != orders[b].price:
         return orders[a].price > orders[b].price
-
     return a < b
 
 
 cdef inline bint sell_before(
-    COrder* orders,
+    const COrder* orders,
     size_t a,
     size_t b,
 ) noexcept nogil:
     if orders[a].price != orders[b].price:
         return orders[a].price < orders[b].price
-
     return a < b
 
 
 cdef inline void heap_push_buy(
     size_t* heap,
     size_t* heap_size,
-    COrder* orders,
+    const COrder* orders,
     size_t index,
 ) noexcept nogil:
     cdef:
@@ -54,16 +57,12 @@ cdef inline void heap_push_buy(
         size_t temp
 
     heap[pos] = index
-    heap_size[0] += 1
+    heap_size[0] = pos + 1
 
     while pos > 0:
-        parent = (pos - 1) // 2
+        parent = (pos - 1) >> 1
 
-        if buy_before(
-            orders,
-            heap[parent],
-            heap[pos],
-        ):
+        if buy_before(orders, heap[parent], heap[pos]):
             break
 
         if (
@@ -82,7 +81,7 @@ cdef inline void heap_push_buy(
 cdef inline void heap_push_sell(
     size_t* heap,
     size_t* heap_size,
-    COrder* orders,
+    const COrder* orders,
     size_t index,
 ) noexcept nogil:
     cdef:
@@ -91,16 +90,12 @@ cdef inline void heap_push_sell(
         size_t temp
 
     heap[pos] = index
-    heap_size[0] += 1
+    heap_size[0] = pos + 1
 
     while pos > 0:
-        parent = (pos - 1) // 2
+        parent = (pos - 1) >> 1
 
-        if sell_before(
-            orders,
-            heap[parent],
-            heap[pos],
-        ):
+        if sell_before(orders, heap[parent], heap[pos]):
             break
 
         if (
@@ -119,47 +114,37 @@ cdef inline void heap_push_sell(
 cdef inline size_t heap_pop_buy(
     size_t* heap,
     size_t* heap_size,
-    COrder* orders,
+    const COrder* orders,
 ) noexcept nogil:
     cdef:
         size_t result = heap[0]
-        size_t last
+        size_t count = heap_size[0] - 1
         size_t pos = 0
         size_t left
         size_t right
         size_t best
         size_t temp
 
-    heap_size[0] -= 1
+    heap_size[0] = count
 
-    if heap_size[0] == 0:
+    if count == 0:
         return result
 
-    last = heap[heap_size[0]]
-    heap[0] = last
+    heap[0] = heap[count]
 
     while True:
-        left = pos * 2 + 1
+        left = (pos << 1) + 1
 
-        if left >= heap_size[0]:
+        if left >= count:
             break
 
         right = left + 1
         best = left
 
-        if right < heap_size[0]:
-            if buy_before(
-                orders,
-                heap[right],
-                heap[left],
-            ):
-                best = right
+        if right < count and buy_before(orders, heap[right], heap[left]):
+            best = right
 
-        if buy_before(
-            orders,
-            heap[pos],
-            heap[best],
-        ):
+        if buy_before(orders, heap[pos], heap[best]):
             break
 
         temp = heap[pos]
@@ -174,47 +159,37 @@ cdef inline size_t heap_pop_buy(
 cdef inline size_t heap_pop_sell(
     size_t* heap,
     size_t* heap_size,
-    COrder* orders,
+    const COrder* orders,
 ) noexcept nogil:
     cdef:
         size_t result = heap[0]
-        size_t last
+        size_t count = heap_size[0] - 1
         size_t pos = 0
         size_t left
         size_t right
         size_t best
         size_t temp
 
-    heap_size[0] -= 1
+    heap_size[0] = count
 
-    if heap_size[0] == 0:
+    if count == 0:
         return result
 
-    last = heap[heap_size[0]]
-    heap[0] = last
+    heap[0] = heap[count]
 
     while True:
-        left = pos * 2 + 1
+        left = (pos << 1) + 1
 
-        if left >= heap_size[0]:
+        if left >= count:
             break
 
         right = left + 1
         best = left
 
-        if right < heap_size[0]:
-            if sell_before(
-                orders,
-                heap[right],
-                heap[left],
-            ):
-                best = right
+        if right < count and sell_before(orders, heap[right], heap[left]):
+            best = right
 
-        if sell_before(
-            orders,
-            heap[pos],
-            heap[best],
-        ):
+        if sell_before(orders, heap[pos], heap[best]):
             break
 
         temp = heap[pos]
@@ -236,14 +211,13 @@ cdef uint64_t match_batch(
 ) noexcept nogil:
     cdef:
         size_t i
-        size_t best_index
+        size_t best_buy_idx
+        size_t best_sell_idx
         uint64_t matched
         uint64_t trades = 0
 
     for i in range(count):
-
         if orders[i].side == 1:
-
             heap_push_buy(
                 buy_heap,
                 buy_size,
@@ -252,56 +226,37 @@ cdef uint64_t match_batch(
             )
 
             while buy_size[0] > 0 and sell_size[0] > 0:
-
-                while (
-                    sell_size[0] > 0
-                    and not orders[sell_heap[0]].active
-                ):
-                    heap_pop_sell(
-                        sell_heap,
-                        sell_size,
-                        orders,
-                    )
+                while sell_size[0] > 0 and not orders[sell_heap[0]].active:
+                    heap_pop_sell(sell_heap, sell_size, orders)
 
                 if sell_size[0] == 0:
                     break
 
-                best_index = buy_heap[0]
+                best_buy_idx = buy_heap[0]
+                best_sell_idx = sell_heap[0]
 
-                if (
-                    orders[best_index].price
-                    < orders[sell_heap[0]].price
-                ):
+                if orders[best_buy_idx].price < orders[best_sell_idx].price:
                     break
 
                 matched = min_quantity(
-                    orders[best_index].quantity,
-                    orders[sell_heap[0]].quantity,
+                    orders[best_buy_idx].quantity,
+                    orders[best_sell_idx].quantity,
                 )
 
-                orders[best_index].quantity -= matched
-                orders[sell_heap[0]].quantity -= matched
+                orders[best_buy_idx].quantity -= matched
+                orders[best_sell_idx].quantity -= matched
 
                 trades += 1
 
-                if orders[sell_heap[0]].quantity == 0:
-                    orders[sell_heap[0]].active = False
-                    heap_pop_sell(
-                        sell_heap,
-                        sell_size,
-                        orders,
-                    )
+                if orders[best_sell_idx].quantity == 0:
+                    orders[best_sell_idx].active = 0
+                    heap_pop_sell(sell_heap, sell_size, orders)
 
-                if orders[best_index].quantity == 0:
-                    orders[best_index].active = False
-                    heap_pop_buy(
-                        buy_heap,
-                        buy_size,
-                        orders,
-                    )
+                if orders[best_buy_idx].quantity == 0:
+                    orders[best_buy_idx].active = 0
+                    heap_pop_buy(buy_heap, buy_size, orders)
 
         elif orders[i].side == 2:
-
             heap_push_sell(
                 sell_heap,
                 sell_size,
@@ -310,53 +265,35 @@ cdef uint64_t match_batch(
             )
 
             while buy_size[0] > 0 and sell_size[0] > 0:
-
-                while (
-                    buy_size[0] > 0
-                    and not orders[buy_heap[0]].active
-                ):
-                    heap_pop_buy(
-                        buy_heap,
-                        buy_size,
-                        orders,
-                    )
+                while buy_size[0] > 0 and not orders[buy_heap[0]].active:
+                    heap_pop_buy(buy_heap, buy_size, orders)
 
                 if buy_size[0] == 0:
                     break
 
-                best_index = sell_heap[0]
+                best_sell_idx = sell_heap[0]
+                best_buy_idx = buy_heap[0]
 
-                if (
-                    orders[best_index].price
-                    > orders[buy_heap[0]].price
-                ):
+                if orders[best_sell_idx].price > orders[best_buy_idx].price:
                     break
 
                 matched = min_quantity(
-                    orders[best_index].quantity,
-                    orders[buy_heap[0]].quantity,
+                    orders[best_sell_idx].quantity,
+                    orders[best_buy_idx].quantity,
                 )
 
-                orders[best_index].quantity -= matched
-                orders[buy_heap[0]].quantity -= matched
+                orders[best_sell_idx].quantity -= matched
+                orders[best_buy_idx].quantity -= matched
 
                 trades += 1
 
-                if orders[buy_heap[0]].quantity == 0:
-                    orders[buy_heap[0]].active = False
-                    heap_pop_buy(
-                        buy_heap,
-                        buy_size,
-                        orders,
-                    )
+                if orders[best_buy_idx].quantity == 0:
+                    orders[best_buy_idx].active = 0
+                    heap_pop_buy(buy_heap, buy_size, orders)
 
-                if orders[best_index].quantity == 0:
-                    orders[best_index].active = False
-                    heap_pop_sell(
-                        sell_heap,
-                        sell_size,
-                        orders,
-                    )
+                if orders[best_sell_idx].quantity == 0:
+                    orders[best_sell_idx].active = 0
+                    heap_pop_sell(sell_heap, sell_size, orders)
 
     return trades
 
@@ -376,6 +313,10 @@ cpdef uint64_t process_batch(
         size_t buy_size = 0
         size_t sell_size = 0
         uint64_t result
+        const uint64_t* raw_ids
+        const uint64_t* raw_sides
+        const uint64_t* raw_prices
+        const uint64_t* raw_qtys
 
     if (
         sides.shape[0] != count
@@ -386,43 +327,36 @@ cpdef uint64_t process_batch(
             "All order arrays must have the same length"
         )
 
-    orders = <COrder*>malloc(
-        count * sizeof(COrder)
-    )
+    if count == 0:
+        return 0
 
-    buy_heap = <size_t*>malloc(
-        count * sizeof(size_t)
-    )
+    raw_ids = &order_ids[0]
+    raw_sides = &sides[0]
+    raw_prices = &prices[0]
+    raw_qtys = &quantities[0]
 
-    sell_heap = <size_t*>malloc(
-        count * sizeof(size_t)
-    )
+    orders = <COrder*>malloc(count * sizeof(COrder))
+    buy_heap = <size_t*>malloc(count * sizeof(size_t))
+    sell_heap = <size_t*>malloc(count * sizeof(size_t))
 
-    if (
-        orders == NULL
-        or buy_heap == NULL
-        or sell_heap == NULL
-    ):
+    if orders == NULL or buy_heap == NULL or sell_heap == NULL:
         if orders != NULL:
             free(orders)
-
         if buy_heap != NULL:
             free(buy_heap)
-
         if sell_heap != NULL:
             free(sell_heap)
-
-        raise MemoryError()
+        raise MemoryError("Failed to allocate memory for order matching")
 
     try:
-        for i in range(count):
-            orders[i].order_id = order_ids[i]
-            orders[i].side = sides[i]
-            orders[i].price = prices[i]
-            orders[i].quantity = quantities[i]
-            orders[i].active = True
-
         with nogil:
+            for i in range(count):
+                orders[i].order_id = raw_ids[i]
+                orders[i].side = raw_sides[i]
+                orders[i].price = raw_prices[i]
+                orders[i].quantity = raw_qtys[i]
+                orders[i].active = 1
+
             result = match_batch(
                 orders,
                 count,

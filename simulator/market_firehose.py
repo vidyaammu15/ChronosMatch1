@@ -5,14 +5,28 @@ from core.types import Order, OrderSide
 
 
 class MarketFirehose:
-    def __init__(self, rate: int = 1000):
+    def __init__(self, rate: int = 1000, realistic: bool = False):
         self.rate = rate
+        self.realistic = realistic
         self.order_id = 0
 
     def generate_order(self) -> Order:
         self.order_id += 1
+
+        if not self.realistic:
+            return Order(
+                order_id=self.order_id,
+                side=(
+                    OrderSide.BUY
+                    if self.order_id % 2
+                    else OrderSide.SELL
+                ),
+                price=65000 + (self.order_id % 100),
+                quantity=1 + (self.order_id % 10),
+                timestamp=time.perf_counter_ns(),
+            )
+
         is_buy = (self.order_id % 2 == 1)
-        
         # 80% passive orders to populate book, 20% aggressive orders to trigger trades
         is_aggressive = ((self.order_id % 5) == 0)
 

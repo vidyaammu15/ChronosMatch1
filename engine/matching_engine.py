@@ -27,6 +27,7 @@ class MatchingEngine:
     def process_order(self, order: Order):
         """Process a normal Python Order with nanosecond timing."""
 
+        self.metrics.total_orders_processed += 1
         engine_enter_ns = time.perf_counter_ns()
 
         if order.side == OrderSide.BUY:
