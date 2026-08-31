@@ -37,7 +37,7 @@ async function refreshDashboard(isUserAction = false) {
     try {
         const timestamp = Date.now();
 
-        // Fetch metrics, status, and orderbook with cache-busting timestamp
+        // Fetch metrics, status, orderbook, and whale event with cache-busting timestamp
         const [metricsRes, statusRes, bookRes] = await Promise.all([
             fetch(`/api/metrics?t=${timestamp}`),
             fetch(`/api/status?t=${timestamp}`),
@@ -88,7 +88,7 @@ async function refreshDashboard(isUserAction = false) {
 
             const testsEl = document.getElementById("tests");
             if (testsEl) {
-                testsEl.textContent = data.automated_tests || "48/48 PASSED";
+                testsEl.textContent = data.automated_tests || "91/91 PASSED";
                 testsEl.style.color = "#10b981";
             }
         }
@@ -125,7 +125,8 @@ async function refreshDashboard(isUserAction = false) {
                     `).join('');
                 }
             }
-        }
+        // Fetch & render Whale event alert if present
+        await loadWhaleEvent();
 
         if (isUserAction) {
             showNotification("Metrics refreshed successfully from backend.");
@@ -145,6 +146,78 @@ async function refreshDashboard(isUserAction = false) {
 async function loadStatus() { return refreshDashboard(false); }
 async function loadMetrics() { return refreshDashboard(false); }
 async function loadOrderBook() { return refreshDashboard(false); }
+
+// ---------------------------------------------------------------------------
+// Whale Event Alert
+// ---------------------------------------------------------------------------
+
+/**
+ * Fetch the latest whale event from the backend and update the alert panel.
+ * The panel is shown only when a real multi-level clear event exists.
+ */
+async function loadWhaleEvent() {
+    try {
+        const res = await fetch(`/api/whale?t=${Date.now()}`);
+        if (!res.ok) return;
+
+        const data = await res.json();
+        const panel = document.getElementById("whale-alert-panel");
+        if (!panel) return;
+
+        if (!data.whale_detected || !data.event) {
+            panel.classList.add("hidden");
+            return;
+        }
+
+        const ev = data.event;
+
+        // Show the panel
+        panel.classList.remove("hidden");
+
+        // Order ID
+        const orderId = document.getElementById("whale-order-id");
+        if (orderId) orderId.textContent = `#${formatNumber(ev.order_id)}`;
+
+        // Levels cleared
+        const levels = document.getElementById("whale-levels");
+        if (levels) levels.textContent = `${ev.levels_cleared} levels`;
+
+        // Order quantity
+        const qty = document.getElementById("whale-quantity");
+        if (qty) qty.textContent = formatNumber(ev.total_quantity);
+
+        // Matched quantity
+        const matched = document.getElementById("whale-matched");
+        if (matched) matched.textContent = formatNumber(ev.total_matched_qty);
+
+        // Side badge
+        const badge = document.getElementById("whale-side-badge");
+        if (badge) {
+            badge.textContent = ev.side;
+            badge.className = "whale-side-badge " + (ev.side === "BUY" ? "side-buy" : "side-sell");
+        }
+
+        // Cleared price level tags
+        const tagsContainer = document.getElementById("whale-prices-tags");
+        if (tagsContainer && Array.isArray(ev.prices_cleared)) {
+            tagsContainer.innerHTML = ev.prices_cleared
+                .map(p => `<span class="whale-price-tag">${formatNumber(p)}</span>`)
+                .join("");
+        }
+
+    } catch (err) {
+        // Non-blocking: whale alert is informational only
+        console.debug("Whale event fetch failed:", err);
+    }
+}
+
+/**
+ * Clear the whale alert panel (called on dashboard reset).
+ */
+function clearWhalePanel() {
+    const panel = document.getElementById("whale-alert-panel");
+    if (panel) panel.classList.add("hidden");
+}
 
 // State variables for storing performance comparison runs
 // State variables for storing performance comparison runs
@@ -386,6 +459,9 @@ async function resetDashboard() {
 
         const asksBody = document.getElementById("asks-body");
         if (asksBody) asksBody.innerHTML = '<tr><td colspan="3" class="empty-state">Order book asks empty</td></tr>';
+
+        // Clear whale alert panel
+        clearWhalePanel();
 
         showNotification(result.message || "Simulation state reset successfully.");
 

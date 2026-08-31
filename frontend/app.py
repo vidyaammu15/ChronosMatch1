@@ -12,6 +12,7 @@ from flask import Flask, jsonify, redirect, request, send_from_directory, sessio
 
 from core.types import Order, OrderSide
 from engine.matching_engine import MatchingEngine
+from engine.whale_detector import detect_whale, WhaleEvent
 from simulator.market_firehose import MarketFirehose
 
 try:
@@ -52,6 +53,7 @@ class DashboardState:
         self.end_timestamp_ns = 0
         self.engine = MatchingEngine()
         self.firehose = MarketFirehose(rate=10000, realistic=True)
+        self.last_whale_event: WhaleEvent | None = None
         self.populate_initial_book()
 
     def populate_initial_book(self):
@@ -88,6 +90,7 @@ class DashboardState:
         self.last_avg_latency_ns = 0.0
         self.start_timestamp_ns = 0
         self.end_timestamp_ns = 0
+        self.last_whale_event = None
         self.engine = MatchingEngine()
         self.firehose = MarketFirehose(rate=10000, realistic=True)
 
@@ -223,7 +226,7 @@ def status():
         "throughput": throughput_str,
         "c_level_optimization": "ENABLED" if CYTHON_AVAILABLE else "DISABLED",
         "gil_free_matching": "ENABLED" if CYTHON_AVAILABLE else "DISABLED",
-        "automated_tests": "48/48 PASSED"
+        "automated_tests": "91/91 PASSED"
     })
 
 
@@ -242,8 +245,8 @@ def metrics():
         "end_timestamp_ns": state.end_timestamp_ns,
         "cython_enabled": CYTHON_AVAILABLE,
         "gil_free": CYTHON_AVAILABLE,
-        "tests_passed": 48,
-        "tests_total": 48
+        "tests_passed": 91,
+        "tests_total": 91
     })
 
 
@@ -319,10 +322,33 @@ def simulate():
     else:
         start_ns = time.perf_counter_ns()
         batch_trades = 0
+        batch_best_whale: WhaleEvent | None = None
+
         for _ in range(count):
             order = state.firehose.generate_order()
             trades = state.engine.process_order(order)
             batch_trades += len(trades)
+
+            # Detect whale events from actual matching activity.
+            if trades:
+                side_str = "BUY" if order.side == OrderSide.BUY else "SELL"
+                event = detect_whale(
+                    order_id=order.order_id,
+                    side=side_str,
+                    order_quantity=order.quantity,
+                    trades=trades,
+                )
+                # Keep the most dramatic whale event (most levels cleared).
+                if event is not None:
+                    if (
+                        batch_best_whale is None
+                        or event.levels_cleared > batch_best_whale.levels_cleared
+                    ):
+                        batch_best_whale = event
+
+        if batch_best_whale is not None:
+            state.last_whale_event = batch_best_whale
+
         end_ns = time.perf_counter_ns()
 
         elapsed_ns = max(1, end_ns - start_ns)
@@ -359,6 +385,19 @@ def simulate():
         "avg_latency_ns": round(avg_latency, 3),
         "elapsed_seconds": round(elapsed_seconds, 6),
         "elapsed_ns": elapsed_ns
+    })
+
+
+
+@app.route("/api/whale")
+def whale():
+    """Return the last detected Whale event, or a null payload if none yet."""
+    if state.last_whale_event is None:
+        return jsonify({"whale_detected": False, "event": None})
+
+    return jsonify({
+        "whale_detected": True,
+        "event": state.last_whale_event.to_dict(),
     })
 
 

@@ -13,3 +13,4 @@ build/
 *.c
 *.lib
 *.exp
+*.db

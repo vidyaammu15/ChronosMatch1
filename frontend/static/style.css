@@ -1163,3 +1163,141 @@ a.user-profile-badge:hover {
         margin: 4px 0;
     }
 }
+
+/* ============================================================
+   WHALE EVENT ALERT PANEL  (Week 4 — Refine & Polish)
+   ============================================================ */
+
+:root {
+    --whale-amber:      #f59e0b;
+    --whale-amber-dim:  rgba(245, 158, 11, 0.12);
+    --whale-amber-glow: rgba(245, 158, 11, 0.35);
+    --whale-orange:     #fb923c;
+}
+
+@keyframes whaleGlow {
+    0%   { box-shadow: 0 0 0   0   var(--whale-amber-glow), 0 0 16px 4px var(--whale-amber-dim); }
+    50%  { box-shadow: 0 0 20px 6px var(--whale-amber-glow), 0 0 40px 10px var(--whale-amber-dim); }
+    100% { box-shadow: 0 0 0   0   var(--whale-amber-glow), 0 0 16px 4px var(--whale-amber-dim); }
+}
+
+@keyframes whalePulseText {
+    0%, 100% { opacity: 1; }
+    50%       { opacity: 0.7; }
+}
+
+/* The full alert container placed inside the orderbook-card */
+.whale-alert-panel {
+    margin-top: 20px;
+    border: 1px solid var(--whale-amber);
+    border-radius: 12px;
+    background: var(--whale-amber-dim);
+    padding: 14px 18px;
+    animation: whaleGlow 2s ease-in-out infinite;
+    transition: opacity 0.4s ease;
+}
+
+.whale-alert-panel.hidden {
+    display: none;
+}
+
+/* Header row: icon + title + badge */
+.whale-alert-header {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 12px;
+}
+
+.whale-icon {
+    font-size: 22px;
+    line-height: 1;
+}
+
+.whale-alert-title {
+    font-size: 14px;
+    font-weight: 700;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    color: var(--whale-amber);
+    animation: whalePulseText 1.8s ease-in-out infinite;
+    flex: 1;
+}
+
+.whale-side-badge {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 1px;
+    padding: 3px 10px;
+    border-radius: 20px;
+    text-transform: uppercase;
+}
+
+.whale-side-badge.side-buy {
+    background: rgba(16, 185, 129, 0.15);
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    color: var(--accent-green);
+}
+
+.whale-side-badge.side-sell {
+    background: rgba(244, 63, 94, 0.15);
+    border: 1px solid rgba(244, 63, 94, 0.4);
+    color: var(--accent-red);
+}
+
+/* Detail row grid */
+.whale-detail-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 8px 16px;
+}
+
+.whale-detail-row {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.whale-detail-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.whale-detail-value {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--whale-amber);
+}
+
+/* Cleared price level tags */
+.whale-prices-row {
+    margin-top: 10px;
+}
+
+.whale-prices-label {
+    font-size: 11px;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 6px;
+}
+
+.whale-prices-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+}
+
+.whale-price-tag {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 6px;
+    background: rgba(245, 158, 11, 0.15);
+    border: 1px solid rgba(245, 158, 11, 0.3);
+    color: var(--whale-orange);
+}
