@@ -1,23 +1,17 @@
 # ChronosMatch
 ## Zero-Copy High-Frequency Trading Engine
 
-ChronosMatch is a low-latency High-Frequency Trading (HFT) engine designed to efficiently generate, transfer, process, match, and monitor a high volume of trading orders.
-
-The project focuses on memory-mapped Inter-Process Communication (IPC), an SPSC ring buffer, a Limit Order Book, Price-Time Priority matching, Cython-based optimization, nanosecond-level performance measurement, asynchronous trade persistence, resiliency, Whale Order detection, and real-time monitoring.
+ChronosMatch is a low-latency High-Frequency Trading (HFT) engine designed to process and match a large number of trading orders efficiently. The project focuses on zero-copy communication, fast order matching, C-level optimization, performance monitoring, trade persistence, resiliency, and real-time dashboard visualization.
 
 ---
 
-# Project Development Progress
-
-The ChronosMatch project was developed progressively according to the planned weekly roadmap.
-
----
+# Week-Wise Project Development
 
 ## Week 1 — Memory Mapping & Market Firehose
 
-### Memory-Mapped IPC
+### Memory Mapping
 
-Implemented the low-level communication layer using shared memory.
+The first week focused on creating an efficient communication mechanism for transferring trading orders between processes.
 
 ### Completed Work
 
@@ -26,106 +20,96 @@ Implemented the low-level communication layer using shared memory.
 - Used `struct` for fixed-size binary order storage.
 - Implemented order serialization and deserialization.
 - Implemented ring-buffer read and write operations.
-- Implemented empty-buffer handling.
-- Implemented full-buffer handling.
+- Added empty and full buffer handling.
 - Implemented ring-buffer wraparound.
 - Added batched writes for high-throughput order ingestion.
-- Maintained FIFO ordering of orders.
+- Maintained FIFO ordering.
 
 ### Market Firehose
 
-Implemented an asynchronous market-order generator to simulate high-volume order flow.
+Implemented an asynchronous Market Firehose to simulate continuous market-order flow.
 
 ### Completed Work
 
-- Implemented asynchronous Market Firehose using `asyncio`.
+- Implemented asynchronous order generation using `asyncio`.
 - Generated simulated BUY and SELL orders.
-- Connected the Market Firehose with the mmap IPC layer.
+- Connected the Market Firehose with the mmap IPC bus.
 - Generated and transferred 100,000 mock trading orders.
-- Verified FIFO ordering from order ID 1 through 100,000.
+- Verified FIFO ordering from order ID 1 to 100,000.
 - Successfully consumed all generated orders.
-- Measured producer throughput.
-- Measured consumer throughput.
+- Measured producer and consumer throughput.
 
 ### Week 1 Status
 
-**COMPLETED**
+**COMPLETED ✅**
 
 ---
 
 # Week 2 — Matching Engine & Latency Dashboard
 
-## Limit Order Book
+### Limit Order Book
 
-Implemented the core order-book functionality required for trade matching.
+The second week focused on implementing the core order-book and trade-matching logic.
 
 ### Completed Work
 
 - Implemented the Limit Order Book.
-- Added BUY order handling.
-- Added SELL order handling.
+- Added BUY and SELL order handling.
 - Implemented Price-Time Priority.
 - Higher-priced BUY orders receive priority.
 - Lower-priced SELL orders receive priority.
-- Orders at the same price are processed according to arrival time.
-- Implemented full fills.
-- Implemented partial fills.
-- Implemented multiple order matches.
+- Maintained time priority for orders at the same price.
+- Implemented full order fills.
+- Implemented partial order fills.
+- Implemented multiple order matching.
 - Implemented order cancellation.
 - Added handling for orders that cannot be matched.
 
-## Matching Engine
+### Matching Engine
 
-Integrated the Limit Order Book with the order-processing pipeline.
-
-### Completed Work
-
-- Processed incoming orders through the matching engine.
+- Integrated the Limit Order Book with the matching pipeline.
+- Processed incoming orders.
 - Compared BUY and SELL prices.
 - Applied Price-Time Priority.
 - Generated trade objects when orders matched.
 - Supported full and partial executions.
-- Supported multiple matches.
-- Integrated the engine with the existing processing pipeline.
+- Verified matching behavior.
 
-## Latency Dashboard
+### Latency Dashboard
 
-Implemented a raw terminal dashboard using Python `curses`.
+Implemented a raw terminal monitoring dashboard using Python `curses`.
 
 ### Completed Work
 
-- Implemented raw `curses` terminal interface.
-- Added Order Book display.
+- Implemented the `curses` terminal interface.
+- Added Order Book monitoring.
 - Added Bid/Ask information.
 - Added latency information.
-- Added real-time engine information.
+- Added engine status information.
+- Added real-time monitoring.
 
 ### Week 2 Status
 
-**COMPLETED**
+**COMPLETED ✅**
 
 ---
 
 # Mid-Project Review — IPC & Engine Verification
 
-The Mid-Project Review focused on verifying the core IPC and matching-engine implementation before moving to performance optimization.
+The Mid-Project Review focused on verifying the core communication and matching functionality developed during the first two weeks.
 
-## IPC Verification
-
-### Completed Work
+### IPC Verification
 
 - Verified mmap-based shared-memory communication.
 - Verified SPSC ring-buffer operations.
 - Verified producer-to-consumer order transfer.
 - Verified FIFO ordering.
-- Verified empty-buffer handling.
-- Verified full-buffer handling.
-- Verified wraparound behavior.
-- Verified batch-write operations.
+- Tested empty-buffer conditions.
+- Tested full-buffer conditions.
+- Tested wraparound behavior.
+- Tested batch-write operations.
 
-## Matching Engine Verification
-
-### Completed Work
+### Engine Verification
 
 - Verified BUY and SELL matching.
 - Verified Price-Time Priority.
@@ -138,76 +122,31 @@ The Mid-Project Review focused on verifying the core IPC and matching-engine imp
 
 ### Mid-Project Review Status
 
-**COMPLETED**
+**COMPLETED ✅**
 
 ---
 
-# Week 3 — C-Level Optimization & Metrics
+# Week 3 — C-Level Optimization & Metrics Tracking
 
-The third phase focused on improving the performance of the matching engine and introducing high-resolution performance monitoring.
+The third week focused on improving the performance of the matching engine and measuring its execution speed.
 
-## Cython / C-Level Optimization
-
-### Completed Work
+### Cython / C-Level Optimization
 
 - Implemented the optimized Cython matching engine.
 - Optimized the critical matching loop.
 - Added C-level order structures.
 - Added Cython compiler optimization directives.
-- Configured C-compiler optimization through `setup.py`.
+- Configured compiler optimization through `setup.py`.
 - Optimized binary heap indexing.
 - Added direct pointer-based memory access.
-- Reduced Python-level overhead in the matching path.
+- Reduced Python-level overhead.
 - Used `nogil` for the performance-critical matching section.
 - Preserved Price-Time Priority.
-- Preserved the standard Python matching-engine fallback.
+- Maintained the standard Python matching-engine fallback.
 
-## Metrics Tracking
+### Metrics Tracking
 
-Implemented high-resolution performance measurement using:
+Implemented high-resolution performance tracking using:
 
 ```python
 time.perf_counter_ns()
-
-
-# Week 4 — Resiliency & Refine/Polish
-
-The fourth phase focused on improving system reliability, asynchronous trade persistence, failure handling, Whale Order detection, and dashboard refinement.
-
-## 4.1 Trade Persistence & Resiliency
-
-### Completed Work
-
-- Implemented SQLite-based trade persistence.
-- Added `TradeLedger` for storing matched trades.
-- Added individual trade saving.
-- Added batch trade saving.
-- Added trade retrieval and counting.
-- Added validation for invalid trade records.
-- Implemented `TradePersistenceWorker` for background processing.
-- Added asynchronous trade submission using a queue.
-- Added batch trade submission.
-- Added pending queue tracking.
-- Added graceful worker shutdown.
-- Ensured pending trades are processed before shutdown.
-- Added SQLite error handling.
-- Added worker-level exception handling.
-- Ensured database failures do not stop the matching engine.
-- Added tests for database and worker failure scenarios.
-
-### Trade Persistence Flow
-
-```text
-Matching Engine
-       |
-       v
-Matched Trade
-       |
-       v
-Persistence Queue
-       |
-       v
-Background Worker
-       |
-       v
-SQLite Trade Ledger
