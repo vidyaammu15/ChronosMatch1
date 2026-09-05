@@ -150,3 +150,45 @@ Implemented high-resolution performance tracking using:
 
 ```python
 time.perf_counter_ns()
+---
+
+# Week 4 — Resiliency, Trade Persistence & Dashboard Refinement
+
+The fourth week focused on improving the reliability of the ChronosMatch system, adding asynchronous trade persistence, handling failures safely, and enhancing the real-time dashboard with Whale Order detection.
+
+## Trade Persistence
+
+Implemented asynchronous trade persistence using SQLite and a background persistence worker.
+
+### Completed Work
+
+- Reworked `database/trade_ledger.py` for reliable trade storage.
+- Added SQLite error handling using `sqlite3.Error`.
+- Added validation for invalid trade records.
+- Added safe return values for failed persistence operations.
+- Implemented `database/trade_persistence_worker.py`.
+- Added asynchronous trade submission through a background queue.
+- Added `submit_many()` support for multiple trades.
+- Added worker exception handling so the persistence thread does not terminate silently.
+- Implemented safe worker shutdown.
+- Added queue draining before worker shutdown.
+- Integrated the persistence worker with `simulator/matching_pipeline.py`.
+- Added the `persist=False` option for tests and scenarios where database persistence is not required.
+- Ensured database failures do not affect the correctness of the matching engine.
+
+### Persistence Flow
+
+```text
+Matching Engine
+       |
+       v
+Matched Trade
+       |
+       v
+Persistence Queue
+       |
+       v
+Background Worker
+       |
+       v
+SQLite Trade Ledger
