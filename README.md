@@ -151,7 +151,7 @@ Implemented high-resolution performance tracking using:
 ```python
 time.perf_counter_ns()
 ---
-
+```
 # Week 4 — Resiliency, Trade Persistence & Dashboard Refinement
 
 The fourth week focused on improving the reliability of the ChronosMatch system, adding asynchronous trade persistence, handling failures safely, and enhancing the real-time dashboard with Whale Order detection.
